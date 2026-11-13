@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Tareas diarias</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#d1d5db;
+    --acc:#d97706; --acc2:#fef3c7; --ok:#15803d; --okbg:#dcfce7;
+    --err:#b91c1c; --errbg:#fee2e2; --warn:#92400e; --warnbg:#fef3c7; --down:#b91c1c; --downbg:#fee2e2;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2f343e;
+      --acc:#f59e0b; --acc2:#3a2a0a; --ok:#4ade80; --okbg:#0f2a19;
+      --err:#f87171; --errbg:#2c1212; --warn:#fbbf24; --warnbg:#2c220c; --down:#fca5a5; --downbg:#3b0d0d; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:#1f2937;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:8px}
+  header h1{font-size:17px;margin:0;flex:1;line-height:1.2}
+  header small{display:block;font-weight:400;color:#d1d5db;font-size:12px}
+  .net{font-size:12px;padding:3px 8px;border-radius:99px;background:#374151;white-space:nowrap;color:#fff;text-decoration:none}
+  .net.on{background:#166534}.net.off{background:#991b1b}
+  main{max-width:560px;margin:0 auto;padding:12px 12px 120px}
+  .card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+  label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
+  input,select,textarea{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);
+    border-radius:8px;padding:12px;min-height:48px}
+  textarea{min-height:90px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);border-color:transparent}
+  .seg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .seg.s3{grid-template-columns:repeat(3,1fr)}
+  .seg button{min-height:50px;border:1px solid var(--ln);background:var(--bg);color:var(--tx);border-radius:10px;
+    font:600 15px system-ui,sans-serif;padding:6px;cursor:pointer}
+  .seg button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  #clase button[data-v=DOWN].sel{background:var(--down);border-color:var(--down);color:#fff}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hora{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+  .hora button{min-height:48px;padding:0 14px;border:1px solid var(--acc);border-radius:8px;background:transparent;color:var(--acc);font:600 14px system-ui,sans-serif}
+  .ayuda{font-size:12px;color:var(--mut);margin:4px 0 0;font-weight:400}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chips button{min-height:44px;padding:8px 12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);color:var(--tx);font:600 13px system-ui,sans-serif;text-align:left}
+  .chips button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .bloque{border-left:4px solid var(--down);padding-left:10px;margin-top:8px}
+  .comp{display:grid;grid-template-columns:1fr 1.2fr auto;gap:6px;margin-bottom:4px;align-items:center}
+  .comp.r{grid-template-columns:1fr 1.1fr 1.2fr auto}
+  .comp button{border:none;background:none;color:var(--mut);font-size:22px;padding:0 6px}
+  .info{font-size:12px;color:var(--mut);margin:0 0 8px}
+  .info.warn{color:var(--warn)}
+  .add{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .add button{flex:1;min-height:44px;border:1px solid var(--ln);border-radius:8px;background:transparent;color:var(--tx);font:600 14px system-ui,sans-serif}
+  .resumen{font-size:14px;line-height:1.5}
+  .lnk{background:none;border:none;color:var(--acc);text-decoration:underline;font:inherit;font-size:13px;padding:0 4px;cursor:pointer}
+  .send{position:fixed;left:0;right:0;bottom:0;padding:12px;background:var(--card);border-top:1px solid var(--ln)}
+  .send button{display:block;width:100%;max-width:560px;margin:0 auto;min-height:56px;border:none;border-radius:12px;
+    background:var(--acc);color:#111;font:700 18px system-ui,sans-serif;cursor:pointer}
+  .msg{border-radius:10px;padding:12px;margin-bottom:12px;font-size:14px}
+  .msg.ok{background:var(--okbg);color:var(--ok)}
+  .msg.err{background:var(--errbg);color:var(--err)}
+  .msg.warn{background:var(--warnbg);color:var(--warn)}
+  .msg ul{margin:6px 0 0;padding-left:18px}
+  .item{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid var(--ln)}
+  .item button{border:none;background:none;color:var(--err);font-size:13px}
+  .hidden{display:none!important}
+  .mut{color:var(--mut);font-size:13px}
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>Tareas diarias<small id="sub">Cargando…</small></h1>
+  <a id="lnkInv" class="net" target="_top" hidden>Inventario</a>
+  <a id="lnkCaj" class="net" target="_top" hidden>Cajas/torres</a>
+  <span id="net" class="net">…</span>
+</header>
+
+<main>
+  <div id="resultado"></div>
+
+  <section class="card" id="cardCola" hidden>
+    <h2>Pendientes por enviar</h2>
+    <p class="mut">Se envían solas cuando haya señal. No cierre esta pestaña.</p>
+    <div id="cola"></div>
+  </section>
+
+  <section class="card" id="cardIngreso">
+    <h2>Ingreso</h2>
+    <label for="areaSel" style="margin-top:0">PIT / mina</label>
+    <select id="areaSel"><option value="">Cargando…</option></select>
+    <label for="usuario">Usuario</label>
+    <input id="usuario" list="dlUsuarios" autocomplete="off" placeholder="Escriba y elija su nombre">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6">
+    <div class="add" style="margin-top:12px"><button type="button" id="btnIngresar">Ingresar</button></div>
+  </section>
+
+  <!-- datos del turno -->
+  <section class="card hidden" id="cardTurno">
+    <h2>Datos del turno</h2>
+    <div id="turnoResumen" class="resumen hidden"></div>
+    <div id="turnoForm">
+      <p class="mut" style="margin:0">Reporta: <b id="lblUsuario"></b> · <span id="lblArea"></span>
+        <button type="button" class="lnk" id="btnSalir">salir</button></p>
+      <div class="row2">
+        <div><label for="fecha">Fecha inicio de turno</label><input id="fecha" type="date"></div>
+        <div><label>Turno</label><div class="seg" id="turno"><button type="button" data-v="Día">Día</button><button type="button" data-v="Noche">Noche</button></div></div>
+      </div>
+      <div class="row2">
+        <div><label for="grupo">Grupo</label><select id="grupo"></select></div>
+        <div><label for="cuadrilla">Cuadrilla</label><select id="cuadrilla"></select></div>
+      </div>
+      <label for="supervisor">Supervisor</label>
+      <input id="supervisor" list="dlSup" autocomplete="off">
+      <label>Técnicos</label>
+      <div class="row2"><input id="tec1" list="dlTec" autocomplete="off" placeholder="Técnico 1"><input id="tec2" list="dlTec" autocomplete="off" placeholder="Técnico 2"></div>
+      <label for="operador">Operador(es)</label>
+      <input id="operador" list="dlOpe" autocomplete="off" placeholder="Vacío si no hubo">
+      <label>Enrollacable(s)</label>
+      <div class="chips" id="enrollacables"></div>
+      <div class="add" style="margin-top:12px"><button type="button" id="btnTurnoOk">Listo, guardar datos del turno</button></div>
+    </div>
+  </section>
+
+  <!-- la tarea -->
+  <section class="card hidden" id="cardTarea">
+    <h2>Tarea</h2>
+    <label style="margin-top:0">¿En esta actividad hubo tiempo DOWN?</label>
+    <div class="seg" id="clase"><button type="button" data-v="DOWN">SÍ, hubo DOWN</button><button type="button" data-v="NO DOWN">NO</button></div>
+
+    <label for="tipo">Tipo de trabajo</label>
+    <select id="tipo"><option value="">Primero diga si hubo DOWN…</option></select>
+
+    <div class="row2">
+      <div><label for="equipo">Equipo</label><input id="equipo" list="dlEquipos" autocomplete="off" placeholder="Pala, draga, feeder…"></div>
+      <div><label for="circuito">Circuito</label><input id="circuito" list="dlCircuitos" autocomplete="off" placeholder="Si aplica"></div>
+    </div>
+
+    <label>Estado de la tarea</label>
+    <div class="seg s3" id="estado"></div>
+
+    <div id="bxElec" class="bloque hidden">
+      <label>Hora en que paró el equipo (falla)</label>
+      <div class="hora"><input id="hParada" type="time"><button type="button" data-ahora="hParada">Ahora</button></div>
+    </div>
+    <label>Hora de inicio</label>
+    <div class="hora"><input id="hInicio" type="time"><button type="button" data-ahora="hInicio">Ahora</button></div>
+    <p class="ayuda">Hora en que la cuadrilla se dispone a hacer la tarea.</p>
+    <div id="bxHorasDown" class="hidden">
+      <label>Hora de desenergización</label>
+      <div class="hora"><input id="hDesen" type="time"><button type="button" data-ahora="hDesen">Ahora</button></div>
+      <p class="ayuda" id="ayDesen"></p>
+      <label>Hora de entrega a producción</label>
+      <div class="hora"><input id="hEntrega" type="time"><button type="button" data-ahora="hEntrega">Ahora</button></div>
+      <p class="ayuda" id="ayEntrega"></p>
+    </div>
+    <label>Hora de finalización</label>
+    <div class="hora"><input id="hFin" type="time"><button type="button" data-ahora="hFin">Ahora</button></div>
+    <p class="ayuda" id="ayTiempo"></p>
+
+    <div id="bxFalla" class="bloque hidden">
+      <label for="componente">Componente que falló</label>
+      <select id="componente"></select>
+      <label for="modo">Modo de falla</label>
+      <select id="modo"></select>
+    </div>
+
+    <label for="descripcion">Descripción de la actividad</label>
+    <textarea id="descripcion" placeholder="Paso a paso de lo que se hizo. Si hizo pruebas de aislamiento, escriba los resultados."></textarea>
+
+    <div id="bxDown" class="bloque hidden">
+      <label>Justificación <span class="mut">(puede marcar varias)</span></label>
+      <div class="chips" id="justificaciones"></div>
+      <label for="lineaTiempo">Línea de tiempo del DOWN</label>
+      <textarea id="lineaTiempo" placeholder="Desde que inició el DOWN hasta que terminó, con demoras y cambios de plan"></textarea>
+      <label>¿Demora por cambio de plan?</label>
+      <p class="ayuda" style="margin-top:0">SÍ solo cuando el supervisor de producción cambió la actividad con la pala ya desenergizada.</p>
+      <div class="seg" id="cambioPlan"><button type="button" data-v="Si">SÍ</button><button type="button" data-v="No">NO</button></div>
+      <div id="bxCambio" class="hidden">
+        <label for="descCambio">Describa el cambio de plan</label>
+        <textarea id="descCambio"></textarea>
+        <label for="minCambio">Tiempo del cambio de plan (minutos)</label>
+        <input id="minCambio" inputmode="numeric" placeholder="Solo números: 10, 25, 50">
+      </div>
+    </div>
+
+    <label>¿Se intervino el cable cola?</label>
+    <div class="seg" id="cableCola"><button type="button" data-v="Si">SÍ</button><button type="button" data-v="No">NO</button></div>
+    <div id="bxCola" class="hidden">
+      <label for="inspeccionCola">¿Qué encontró en la inspección visual del cable cola?</label>
+      <textarea id="inspeccionCola" placeholder="Si no encontró nada escriba SIN NOVEDAD"></textarea>
+    </div>
+  </section>
+
+  <section class="card hidden" id="cardComp">
+    <h2>Cables, cajas y torres</h2>
+    <p class="mut" style="margin-top:0">Lo que escriba aquí actualiza el inventario. No hay que reportarlo otra vez.</p>
+    <label style="margin-top:0">Instalados en el circuito</label>
+    <p class="ayuda" style="margin-top:0">Quedan al final del circuito de la tarea. El primer cable va con la primera caja.</p>
+    <div id="agregados"></div>
+    <div class="add"><button type="button" data-ag="CABLE">+ Cable</button><button type="button" data-ag="CAJA">+ Caja</button><button type="button" data-ag="TORRE">+ Torre</button></div>
+    <label>Retirados del circuito</label>
+    <div id="retirados"></div>
+    <div class="add"><button type="button" data-re="CABLE">+ Cable</button><button type="button" data-re="CAJA">+ Caja</button><button type="button" data-re="TORRE">+ Torre</button></div>
+    <div id="bxDestino" class="hidden">
+      <label for="destinoRetiro">¿A qué patio o acopio llevó lo retirado?</label>
+      <input id="destinoRetiro" list="dlAcopios" autocomplete="off">
+    </div>
+  </section>
+
+  <section class="card hidden" id="cardHechas">
+    <h2>Enviadas en este turno</h2>
+    <div id="hechas"></div>
+  </section>
+</main>
+
+<div class="send hidden" id="barEnviar"><button id="btnEnviar" type="button">Enviar tarea</button></div>
+
+<datalist id="dlUsuarios"></datalist>
+<datalist id="dlSup"></datalist>
+<datalist id="dlTec"></datalist>
+<datalist id="dlOpe"></datalist>
+<datalist id="dlEquipos"></datalist>
+<datalist id="dlCircuitos"></datalist>
+<datalist id="dlAcopios"></datalist>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var K_COLA = 'tar_cola', K_LISTAS = 'tar_listas_', K_SES = 'tar_sesion', K_TURNO = 'tar_turno', K_HECHAS = 'tar_hechas';
+  var ses = null, L = null, enviando = false;
+  var st = { turno:'', clase:'', estado:'', cambioPlan:'', cableCola:'' };
+  var NOM = { CABLE:'Cable', CAJA:'Caja', TORRE:'Torre' };
+  var $ = function(id){ return document.getElementById(id); };
+
+  function ls(k, v){
+    try{
+      if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; }
+      if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v));
+    }catch(e){ return null; }
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function gs(){ return (typeof google !== 'undefined' && google.script && google.script.run) ? google.script.run : null; }
+  function norm(n){ return String(n == null ? '' : n).toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(^|[A-Z])0+(?=\d)/g, '$1'); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function mostrar(tipo, html){ $('resultado').innerHTML = '<div class="msg ' + tipo + '">' + html + '</div>'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+  /* ---------- botones segmentados ---------- */
+  function seg(id, key, cb){
+    $(id).addEventListener('click', function(ev){
+      var b = ev.target.closest('button'); if (!b) return;
+      st[key] = b.dataset.v;
+      marcar(id, st[key]);
+      if (cb) cb();
+    });
+  }
+  function marcar(id, v){ Array.prototype.forEach.call($(id).children, function(x){ x.classList.toggle('sel', x.dataset.v === v); }); }
+  seg('turno', 'turno');
+  seg('clase', 'clase', pintarClase);
+  seg('estado', 'estado', pintarClase);
+  seg('cambioPlan', 'cambioPlan', function(){ $('bxCambio').classList.toggle('hidden', st.cambioPlan !== 'Si'); });
+  seg('cableCola', 'cableCola', function(){ $('bxCola').classList.toggle('hidden', st.cableCola !== 'Si'); });
+
+  function chips(id, arr){
+    $(id).innerHTML = (arr || []).map(function(v){ return '<button type="button" data-v="' + esc(v) + '">' + esc(v) + '</button>'; }).join('');
+  }
+  function chipsSel(id){ return Array.prototype.filter.call($(id).children, function(b){ return b.classList.contains('sel'); }).map(function(b){ return b.dataset.v; }); }
+  function chipsMarcar(id, vals){ Array.prototype.forEach.call($(id).children, function(b){ b.classList.toggle('sel', (vals || []).indexOf(b.dataset.v) >= 0); }); }
+  ['enrollacables','justificaciones'].forEach(function(id){
+    $(id).addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (b) b.classList.toggle('sel'); });
+  });
+
+  /* ---------- horas ---------- */
+  document.addEventListener('click', function(ev){
+    var b = ev.target.closest('button[data-ahora]'); if (!b) return;
+    var d = new Date();
+    $(b.dataset.ahora).value = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    calcTiempo();
+  });
+  ['hParada','hInicio','hDesen','hEntrega','hFin'].forEach(function(id){ $(id).addEventListener('change', calcTiempo); });
+  function minDe(v){ var m = /^(\d{1,2}):(\d{2})/.exec(v || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+  /* igual que el servidor: en turno de noche, lo de antes del mediodía es del día siguiente */
+  function absMin(v){ var m = minDe(v); if (m == null) return null; return (st.turno === 'Noche' && m < 720) ? m + 1440 : m; }
+  function dur(a, b){ var x = absMin($(a).value), y = absMin($(b).value); return (x == null || y == null) ? null : y - x; }
+  function txtMin(m){ return Math.floor(m / 60) + ' h ' + pad(m % 60) + ' min'; }
+  function calcTiempo(){
+    var t = dur('hInicio', 'hFin'), d = st.clase === 'DOWN' ? dur('hDesen', 'hEntrega') : null;
+    var p = [];
+    if (t != null) p.push(t < 0 ? 'Revise: la finalización quedó antes del inicio' : 'Duración: ' + txtMin(t));
+    if (d != null) p.push(d < 0 ? 'Revise: la entrega quedó antes de la desenergización' : 'Tiempo DOWN (desenergización → entrega): ' + txtMin(d));
+    $('ayTiempo').textContent = p.join(' · ');
+    $('ayTiempo').style.color = (t != null && t < 0) || (d != null && d < 0) ? 'var(--err)' : '';
+  }
+
+  /* ---------- DOWN / NO DOWN ---------- */
+  function esElec(){ return st.clase === 'DOWN' && /DOWN EL[EÉ]CTRICO/i.test($('tipo').value); }
+  function esVoladura(){ return /VOLADURA/i.test($('tipo').value); }
+  function pintarTipos(){
+    var v = $('tipo').value;
+    var t = (L && L.tipos || []).filter(function(x){ return x.c === st.clase; });
+    $('tipo').innerHTML = '<option value="">' + (st.clase ? 'Elija el tipo de trabajo…' : 'Primero diga si hubo DOWN…') + '</option>' +
+      t.map(function(x){ return '<option>' + esc(x.t) + '</option>'; }).join('');
+    if (t.some(function(x){ return x.t === v; })) $('tipo').value = v;
+  }
+  function pintarClase(){
+    pintarTipos();
+    var down = st.clase === 'DOWN';
+    $('bxHorasDown').classList.toggle('hidden', !down);
+    $('bxDown').classList.toggle('hidden', !down);
+    pintarTipo();
+  }
+  function pintarTipo(){
+    var elec = esElec();
+    $('bxElec').classList.toggle('hidden', !elec);
+    $('bxFalla').classList.toggle('hidden', !elec);
+    var vol = esVoladura();
+    $('ayDesen').textContent = vol ? 'En voladura: hora en que producción entrega el equipo.' : '';
+    $('ayEntrega').textContent = vol ? 'En voladura: hora en que se entrega el equipo desenergizado y se notifica a mantenimiento.' : '';
+    calcTiempo();
+  }
+  $('tipo').addEventListener('change', pintarTipo);
+
+  /* ---------- cables, cajas y torres ---------- */
+  function filaComp(cont, el, retiro){
+    var d = document.createElement('div');
+    d.className = 'comp' + (retiro ? ' r' : '');
+    d.dataset.elemento = el;
+    d.innerHTML = '<b>' + NOM[el] + '</b><input class="num" autocomplete="off" autocapitalize="characters" placeholder="Número' + (el === 'CAJA' ? ' (309B)' : '') + '"' + (el === 'CABLE' ? ' inputmode="numeric"' : '') + '>' +
+      (retiro ? '<select class="est"><option>Disponible</option><option>No disponible</option></select>' : '') +
+      '<button type="button" aria-label="Quitar">×</button>';
+    var info = document.createElement('p'); info.className = 'info';
+    d.querySelector('button').onclick = function(){ d.remove(); info.remove(); pintarDestino(); };
+    d.querySelector('.num').addEventListener('change', function(){ verificarComp(d, info); });
+    $(cont).appendChild(d); $(cont).appendChild(info);
+    pintarDestino();
+    d.querySelector('.num').focus();
+  }
+  document.querySelector('#cardComp').addEventListener('click', function(ev){
+    var b = ev.target.closest('button[data-ag],button[data-re]'); if (!b) return;
+    if (b.dataset.ag) filaComp('agregados', b.dataset.ag, false); else filaComp('retirados', b.dataset.re, true);
+  });
+  function pintarDestino(){ $('bxDestino').classList.toggle('hidden', !$('retirados').querySelector('.comp')); }
+  function errFormato(el, n){
+    var R = (L && L.reglas) || { letrasCaja:'AB', letrasCable:'', permitirNN:false, letraObligatoria:true };
+    n = String(n || '').trim().toUpperCase();
+    if (R.permitirNN && n === 'NN' && el !== 'TORRE') return '';
+    if (el === 'CABLE'){
+      var rc = R.letrasCable ? new RegExp('^[' + R.letrasCable + ']?\\d+$') : /^\d+$/;
+      if (!rc.test(n)) return 'Número de cable inválido: solo números, sin espacios (ej: 571).';
+    }
+    if (el === 'CAJA'){
+      var ob = R.letraObligatoria && R.letrasCaja;
+      var rj = R.letrasCaja ? new RegExp('^\\d+[' + R.letrasCaja + ']' + (ob ? '' : '?') + '$') : /^\d+$/;
+      if (!rj.test(n)) return 'Número de caja inválido: número y letra ' + (R.letrasCaja || '').split('').join(' o ') + ' pegada (ej: 309B).';
+    }
+    return '';
+  }
+  function verificarComp(d, info){
+    var inp = d.querySelector('.num');
+    inp.value = inp.value.trim().toUpperCase();
+    d.dataset.id = '';
+    if (!inp.value){ info.textContent = ''; return; }
+    var ef = errFormato(d.dataset.elemento, inp.value);
+    if (ef){ info.className = 'info warn'; info.textContent = ef; return; }
+    var k = norm(inp.value);
+    var m = (L && L.items || []).filter(function(x){ return x[1] === d.dataset.elemento && x[2] === k && x[7] !== 'De baja'; });
+    if (!m.length){ info.className = 'info warn'; info.textContent = 'No está en el inventario: se creará como nuevo.'; return; }
+    if (m.length > 1){ info.className = 'info warn'; info.textContent = 'Número repetido en el inventario: el supervisor revisará cuál fue.'; return; }
+    d.dataset.id = m[0][0];
+    info.className = 'info';
+    info.textContent = 'Hoy: ' + m[0][7] + ' · ' + (m[0][5] || 'sin ubicación') + (m[0][4] ? ' · ' + m[0][4] : '');
+  }
+  function leerComp(cont){
+    return Array.prototype.map.call($(cont).querySelectorAll('.comp'), function(d){
+      var est = d.querySelector('.est');
+      return { elemento: d.dataset.elemento, numero: d.querySelector('.num').value.trim().toUpperCase(),
+        idMaestro: d.dataset.id || '', estado: est ? est.value : '' };
+    }).filter(function(x){ return x.numero; });
+  }
+
+  /* ---------- turno ---------- */
+  function hoyTurno(){
+    var d = new Date(), h = d.getHours();
+    if (h < 6) d = new Date(d.getTime() - 864e5);
+    return { fecha: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()), turno: (h >= 6 && h < 18) ? 'Día' : 'Noche' };
+  }
+  function pintarCuadrillas(){
+    var g = $('grupo').value, v = $('cuadrilla').value;
+    var c = (L && L.cuadrillas || []).filter(function(x){ return x.g === g; }).map(function(x){ return x.c; });
+    $('cuadrilla').innerHTML = '<option value="">…</option>' + c.map(function(x){ return '<option>' + esc(x) + '</option>'; }).join('');
+    if (c.indexOf(v) >= 0) $('cuadrilla').value = v;
+  }
+  $('grupo').addEventListener('change', pintarCuadrillas);
+  function leerTurno(){
+    return { fecha: $('fecha').value, turno: st.turno, grupo: $('grupo').value, cuadrilla: $('cuadrilla').value,
+      supervisor: $('supervisor').value.trim(), tecnicos: [$('tec1').value.trim(), $('tec2').value.trim()].filter(Boolean),
+      operadores: $('operador').value.trim() ? [$('operador').value.trim()] : [], enrollacables: chipsSel('enrollacables') };
+  }
+  function errTurno(t){
+    if (!t.fecha) return 'Falta la fecha del turno.';
+    if (!t.turno) return 'Falta el turno.';
+    if (!t.grupo) return 'Falta el grupo.';
+    if (!t.cuadrilla) return 'Falta la cuadrilla.';
+    if (!t.supervisor) return 'Falta el supervisor.';
+    if (!t.tecnicos.length) return 'Faltan los técnicos.';
+    return '';
+  }
+  function pintarTurno(t){
+    $('fecha').value = t.fecha || ''; st.turno = t.turno || ''; marcar('turno', st.turno);
+    $('grupo').value = t.grupo || ''; pintarCuadrillas(); $('cuadrilla').value = t.cuadrilla || '';
+    $('supervisor').value = t.supervisor || ''; $('tec1').value = (t.tecnicos || [])[0] || ''; $('tec2').value = (t.tecnicos || [])[1] || '';
+    $('operador').value = (t.operadores || [])[0] || ''; chipsMarcar('enrollacables', t.enrollacables);
+  }
+  function turnoListo(ok){
+    var t = leerTurno();
+    $('turnoForm').classList.toggle('hidden', ok);
+    $('turnoResumen').classList.toggle('hidden', !ok);
+    $('cardTarea').classList.toggle('hidden', !ok);
+    $('cardComp').classList.toggle('hidden', !ok);
+    $('barEnviar').classList.toggle('hidden', !ok);
+    if (ok){
+      var f = t.fecha.split('-');
+      $('turnoResumen').innerHTML = '<b>' + f[2] + '/' + f[1] + ' · ' + esc(t.turno) + ' · Grupo ' + esc(t.grupo) + ' · Cuadrilla ' + esc(t.cuadrilla) + '</b><br>' +
+        'Sup: ' + esc(t.supervisor) + '<br>Téc: ' + esc(t.tecnicos.join(', ')) + (t.operadores.length ? '<br>Op: ' + esc(t.operadores.join(', ')) : '') +
+        (t.enrollacables.length ? '<br>Enrollacable: ' + esc(t.enrollacables.join(', ')) : '') +
+        ' <button type="button" class="lnk" id="btnTurnoEdit">cambiar</button>';
+      $('btnTurnoEdit').onclick = function(){ turnoListo(false); };
+      calcTiempo();
+    }
+  }
+  $('btnTurnoOk').onclick = function(){
+    var t = leerTurno(), e = errTurno(t);
+    if (e){ mostrar('err', esc(e)); return; }
+    var prev = ls(K_TURNO + '_' + ses.usuario);
+    if (!prev || prev.fecha !== t.fecha || prev.turno !== t.turno) ls(K_HECHAS, []);
+    ls(K_TURNO + '_' + ses.usuario, t);
+    $('resultado').innerHTML = '';
+    turnoListo(true);
+    pintarHechas();
+  };
+
+  /* ---------- armar, validar y enviar ---------- */
+  function armar(){
+    var t = leerTurno();
+    return {
+      idEnvio: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      usuario: ses.usuario, pin: ses.pin, area: ses.area,
+      fecha: t.fecha, turno: t.turno, grupo: t.grupo, cuadrilla: t.cuadrilla, supervisor: t.supervisor,
+      tecnicos: t.tecnicos, operadores: t.operadores, enrollacables: t.enrollacables,
+      clase: st.clase, tipo: $('tipo').value, equipo: $('equipo').value.trim(), circuito: $('circuito').value.trim(),
+      estado: st.estado, descripcion: $('descripcion').value.trim(),
+      hParada: esElec() ? $('hParada').value : '', hInicio: $('hInicio').value,
+      hDesen: st.clase === 'DOWN' ? $('hDesen').value : '', hEntrega: st.clase === 'DOWN' ? $('hEntrega').value : '', hFin: $('hFin').value,
+      componente: esElec() ? $('componente').value : '', modo: esElec() ? $('modo').value : '',
+      justificaciones: st.clase === 'DOWN' ? chipsSel('justificaciones') : [],
+      lineaTiempo: st.clase === 'DOWN' ? $('lineaTiempo').value.trim() : '',
+      cambioPlan: st.clase === 'DOWN' ? st.cambioPlan : '', descCambio: $('descCambio').value.trim(), minCambio: $('minCambio').value.trim(),
+      cableCola: st.cableCola, inspeccionCola: $('inspeccionCola').value.trim(),
+      agregados: leerComp('agregados'), retirados: leerComp('retirados'), destinoRetiro: $('destinoRetiro').value.trim()
+    };
+  }
+  function validar(p){
+    var e = errTurno(p); if (e) return e;
+    if (!p.clase) return 'Diga si hubo DOWN.';
+    if (!p.tipo) return 'Elija el tipo de trabajo.';
+    if (!p.equipo && !p.circuito) return 'Escriba el equipo o el circuito.';
+    if (!p.estado) return 'Elija el estado de la tarea.';
+    var fin = p.estado === 'FINALIZADO', down = p.clase === 'DOWN', elec = esElec();
+    if (elec && !p.hParada) return 'Falta la hora en que paró el equipo.';
+    if (!p.hInicio) return 'Falta la hora de inicio.';
+    if (down && fin && !p.hDesen) return 'Falta la hora de desenergización.';
+    if (down && fin && !p.hEntrega) return 'Falta la hora de entrega a producción.';
+    if (fin && !p.hFin) return 'Falta la hora de finalización.';
+    var ord = [['hInicio','hFin','la finalización quedó antes del inicio']];
+    if (down) ord = ord.concat([['hInicio','hDesen','la desenergización quedó antes del inicio'], ['hDesen','hEntrega','la entrega quedó antes de la desenergización'],
+      ['hEntrega','hFin','la finalización quedó antes de la entrega'], ['hParada','hEntrega','la entrega quedó antes de la parada del equipo']]);
+    for (var i = 0; i < ord.length; i++){
+      var x = absMin(p[ord[i][0]]), y = absMin(p[ord[i][1]]);
+      if (x != null && y != null && y < x) return 'Revise las horas: ' + ord[i][2] + '.';
+    }
+    if (elec && fin && !p.componente) return 'Elija el componente que falló.';
+    if (elec && fin && !p.modo) return 'Elija el modo de falla.';
+    if (!p.descripcion) return 'Escriba la descripción de la actividad.';
+    if (down && !p.cambioPlan) return 'Diga si hubo demora por cambio de plan.';
+    if (down && p.cambioPlan === 'Si' && !p.descCambio) return 'Describa el cambio de plan.';
+    if (down && p.cambioPlan === 'Si' && !/^\d+$/.test(p.minCambio)) return 'Escriba los minutos del cambio de plan, solo números.';
+    if (!p.cableCola) return 'Diga si se intervino el cable cola.';
+    if (p.cableCola === 'Si' && !p.inspeccionCola) return 'Escriba qué encontró en la inspección del cable cola (o SIN NOVEDAD).';
+    var comps = p.agregados.concat(p.retirados);
+    for (var j = 0; j < comps.length; j++){ var ef = errFormato(comps[j].elemento, comps[j].numero); if (ef) return ef; }
+    if (p.agregados.length && !p.circuito) return 'Para instalar cables, cajas o torres escriba el circuito.';
+    if (p.retirados.length && !p.destinoRetiro) return 'Escriba a qué patio llevó lo retirado.';
+    return '';
+  }
+  function resumenTxt(p){ return p.tipo + (p.equipo ? ' · ' + p.equipo : '') + (p.circuito ? ' · ' + p.circuito : ''); }
+
+  $('btnEnviar').onclick = function(){
+    var p = armar(), e = validar(p);
+    if (e){ mostrar('err', esc(e)); return; }
+    var cola = ls(K_COLA) || []; cola.push({ p: p, error: '' }); ls(K_COLA, cola);
+    limpiarTarea();
+    pintarCola();
+    mostrar('warn', (navigator.onLine && gs()) ? 'Enviando: ' + esc(resumenTxt(p)) + '…' : 'Sin señal. Quedó guardada y se envía sola cuando haya cobertura.');
+    procesarCola();
+  };
+
+  function procesarCola(){
+    if (enviando || !gs() || !ses) return;
+    var cola = ls(K_COLA) || [];
+    var idx = cola.findIndex(function(x){ return !x.error; });
+    if (idx < 0) return;
+    enviando = true;
+    var item = cola[idx];
+    gs().withSuccessHandler(function(r){
+      enviando = false;
+      var c = ls(K_COLA) || [];
+      var i = c.findIndex(function(x){ return x.p.idEnvio === item.p.idEnvio; });
+      if (r && r.ok){
+        if (i >= 0) c.splice(i, 1);
+        ls(K_COLA, c);
+        var h = ls(K_HECHAS) || []; h.push({ hora: item.p.hInicio + (item.p.hFin ? '–' + item.p.hFin : ''), txt: resumenTxt(item.p), clase: item.p.clase }); ls(K_HECHAS, h);
+        var html = '<b>Registrado:</b><ul>' + (r.mensajes || []).map(function(m){ return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>';
+        if (r.alertas && r.alertas.length) html += '<b>Revisar en inventario:</b><ul>' + r.alertas.map(function(m){ return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>';
+        mostrar(r.alertas && r.alertas.length ? 'warn' : 'ok', html);
+        pintarHechas();
+        cargarListas();
+      } else {
+        if (i >= 0){ c[i].error = (r && r.error) || 'Error'; ls(K_COLA, c); }
+        mostrar('err', 'No se registró: ' + esc((r && r.error) || 'Error') + '. Borre la pendiente y envíela de nuevo corregida.');
+      }
+      pintarCola(); procesarCola();
+    }).withFailureHandler(function(){ enviando = false; pintarCola(); }).registrarTarea(item.p);
+  }
+  function pintarCola(){
+    var cola = ls(K_COLA) || [];
+    $('cardCola').hidden = !cola.length;
+    $('cola').innerHTML = cola.map(function(x, i){
+      return '<div class="item"><span>' + esc(x.p.fecha) + ' ' + esc(x.p.hInicio) + ' · ' + esc(resumenTxt(x.p)) +
+        (x.error ? '<br><b style="color:var(--err)">' + esc(x.error) + '</b>' : '') +
+        '</span><button type="button" data-i="' + i + '">Borrar</button></div>';
+    }).join('');
+    $('cola').querySelectorAll('button').forEach(function(b){
+      b.onclick = function(){
+        if (!confirm('¿Borrar esta tarea sin enviarla?')) return;
+        var c = ls(K_COLA) || []; c.splice(+b.dataset.i, 1); ls(K_COLA, c); pintarCola();
+      };
+    });
+  }
+  function pintarHechas(){
+    var h = ls(K_HECHAS) || [];
+    $('cardHechas').classList.toggle('hidden', !h.length || !ses);
+    $('hechas').innerHTML = h.map(function(x){ return '<div class="item"><span>' + esc(x.hora) + ' · ' + (x.clase === 'DOWN' ? '<b>DOWN</b> · ' : '') + esc(x.txt) + '</span></div>'; }).join('');
+  }
+  function limpiarTarea(){
+    st.clase = ''; st.estado = ''; st.cambioPlan = ''; st.cableCola = '';
+    ['clase','estado','cambioPlan','cableCola'].forEach(function(id){ marcar(id, ''); });
+    ['equipo','circuito','descripcion','hParada','hInicio','hDesen','hEntrega','hFin','lineaTiempo','descCambio','minCambio','inspeccionCola','destinoRetiro']
+      .forEach(function(id){ $(id).value = ''; });
+    $('componente').value = ''; $('modo').value = '';
+    chipsMarcar('justificaciones', []);
+    $('agregados').innerHTML = ''; $('retirados').innerHTML = '';
+    $('bxCambio').classList.add('hidden'); $('bxCola').classList.add('hidden');
+    pintarDestino(); pintarClase();
+  }
+
+  /* ---------- señal ---------- */
+  function pintarRed(){
+    var on = navigator.onLine;
+    $('net').textContent = on ? 'Con señal' : 'Sin señal';
+    $('net').className = 'net ' + (on ? 'on' : 'off');
+    if (on) procesarCola();
+  }
+  window.addEventListener('online', pintarRed);
+  window.addEventListener('offline', pintarRed);
+  setInterval(procesarCola, 20000);
+
+  /* ---------- listas ---------- */
+  function opciones(id, arr, ph){ $(id).innerHTML = '<option value="">' + (ph || '…') + '</option>' + (arr || []).map(function(v){ return '<option>' + esc(v) + '</option>'; }).join(''); }
+  function datalist(id, arr){ $(id).innerHTML = (arr || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); }
+  function aplicarListas(x){
+    if (!x) return;
+    L = x;
+    $('sub').textContent = x.area + ' · ' + (x.nombreMina || '');
+    var grupos = []; (x.cuadrillas || []).forEach(function(c){ if (grupos.indexOf(c.g) < 0) grupos.push(c.g); });
+    var g = $('grupo').value; opciones('grupo', grupos.sort()); if (grupos.indexOf(g) >= 0) $('grupo').value = g;
+    pintarCuadrillas();
+    datalist('dlSup', x.supervisores); datalist('dlTec', x.tecnicos); datalist('dlOpe', x.operadores);
+    datalist('dlEquipos', x.equipos); datalist('dlCircuitos', x.circuitos); datalist('dlAcopios', x.acopios);
+    var enr = chipsSel('enrollacables'); chips('enrollacables', x.enrollacables); chipsMarcar('enrollacables', enr);
+    var ju = chipsSel('justificaciones'); chips('justificaciones', x.justificaciones); chipsMarcar('justificaciones', ju);
+    $('estado').innerHTML = (x.estados || []).map(function(v){ return '<button type="button" data-v="' + esc(v) + '">' + esc(v) + '</button>'; }).join('');
+    marcar('estado', st.estado);
+    var c = $('componente').value, m = $('modo').value;
+    opciones('componente', x.componentes, 'Elija…'); opciones('modo', x.modos, 'Elija…');
+    $('componente').value = c; $('modo').value = m;
+    pintarClase();
+  }
+  function cargarListas(){
+    if (!gs() || !ses) return;
+    gs().withSuccessHandler(function(x){
+      if (!x || !x.ok){ if (x && /PIN/.test(x.error)) salir(x.error); return; }
+      ls(K_LISTAS + ses.area, x); aplicarListas(x);
+      var t = ls(K_TURNO + '_' + ses.usuario); if (t && $('turnoResumen').classList.contains('hidden') && !$('fecha').value) pintarTurno(t);
+    }).withFailureHandler(function(){}).getListasTareas(ses.usuario, ses.pin, ses.area);
+  }
+
+  /* ---------- ingreso ---------- */
+  function mostrarSesion(){
+    var on = !!ses;
+    $('cardIngreso').classList.toggle('hidden', on);
+    $('cardTurno').classList.toggle('hidden', !on);
+    if (!on){ ['cardTarea','cardComp','barEnviar','cardHechas'].forEach(function(id){ $(id).classList.add('hidden'); }); return; }
+    $('lblUsuario').textContent = ses.usuario; $('lblArea').textContent = ses.area;
+    aplicarListas(ls(K_LISTAS + ses.area));
+    var t = ls(K_TURNO + '_' + ses.usuario), h = hoyTurno();
+    if (t && t.fecha === h.fecha && t.turno === h.turno){ pintarTurno(t); turnoListo(true); }
+    else {
+      pintarTurno(Object.assign({}, t || {}, { fecha: h.fecha, turno: h.turno }));
+      turnoListo(false);
+    }
+    pintarHechas();
+  }
+  function salir(msg){
+    ses = null; ls(K_SES, null); mostrarSesion();
+    if (msg) mostrar('err', esc(msg));
+  }
+  $('btnSalir').onclick = function(){
+    if ((ls(K_COLA) || []).length && !confirm('Hay tareas sin enviar. Se enviarán cuando vuelva a ingresar. ¿Salir?')) return;
+    salir();
+  };
+  $('btnIngresar').onclick = function(){
+    var u = $('usuario').value.trim(), pin = $('pin').value.trim(), a = $('areaSel').value;
+    if (!a){ mostrar('err', 'Elija el PIT o la mina.'); return; }
+    if (!u || !pin){ mostrar('err', 'Escriba su usuario y su PIN.'); return; }
+    if (!gs() || !navigator.onLine){ mostrar('err', 'Para ingresar la primera vez necesita señal.'); return; }
+    $('btnIngresar').disabled = true;
+    gs().withSuccessHandler(function(r){
+      $('btnIngresar').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      ses = { usuario: r.nombre, pin: pin, area: a };
+      ls(K_SES, ses);
+      $('resultado').innerHTML = '';
+      mostrarSesion(); cargarListas(); procesarCola();
+    }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar. Intente de nuevo.'); })
+      .ingresar(u, pin);
+  };
+  function cargarInicio(){
+    if (!gs()) return;
+    gs().withSuccessHandler(function(x){
+      $('areaSel').innerHTML = '<option value="">Elija…</option>' + x.areas.map(function(a){ return '<option>' + esc(a) + '</option>'; }).join('');
+      datalist('dlUsuarios', x.usuarios);
+      if (x.url){ $('lnkInv').href = x.url + '?vista=inventario'; $('lnkInv').hidden = false; $('lnkCaj').href = 'cajas.html'; $('lnkCaj').hidden = false; }
+      if (!ses) $('sub').textContent = 'Ingrese con su usuario';
+    }).withFailureHandler(function(){}).getInicioTareas();
+  }
+
+  /* ---------- inicio ---------- */
+  ses = ls(K_SES);
+  mostrarSesion();
+  cargarInicio();
+  pintarCola();
+  pintarRed();
+  cargarListas();
+})();
+</script>
+</body>
+</html>
