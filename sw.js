@@ -2,7 +2,7 @@
 var VERSION = 'insu-66e0996c6e';
 var ARCHIVOS = ['./', 'index.html', 'cajas.html', 'inventario.html', 'consulta.html', 'revision.html', 'shim.js', 'manifest.json', 'icono-192.png', 'icono-512.png', 'logo.png'];
 self.addEventListener('install', function(e){
-  e.waitUntil(caches.open(VERSION).then(function(c){ return c.addAll(ARCHIVOS); }).then(function(){ return self.skipWaiting(); }));
+  e.waitUntil(caches.open(VERSION).then(function(c){ return c.addAll(ARCHIVOS.map(function(u){ return new Request(u, { cache: 'reload' }); })); }).then(function(){ return self.skipWaiting(); }));
 });
 self.addEventListener('activate', function(e){
   e.waitUntil(caches.keys().then(function(ks){ return Promise.all(ks.filter(function(k){ return k !== VERSION; }).map(function(k){ return caches.delete(k); })); })
@@ -14,7 +14,7 @@ self.addEventListener('fetch', function(e){
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
   e.respondWith(caches.open(VERSION).then(function(c){
     return c.match(e.request, { ignoreSearch: true }).then(function(r){
-      var red = fetch(e.request).then(function(n){ if (n && n.ok) c.put(e.request, n.clone()); return n; }).catch(function(){ return r; });
+      var red = fetch(e.request, { cache: 'no-cache' }).then(function(n){ if (n && n.ok) c.put(e.request, n.clone()); return n; }).catch(function(){ return r; });
       return r || red;
     });
   }));
