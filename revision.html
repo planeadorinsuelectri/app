@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revisión de tareas</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#d1d5db; --zebra:#f9fafb;
+    --acc:#d97706; --ok:#15803d; --okbg:#dcfce7; --err:#b91c1c; --errbg:#fee2e2;
+    --pend:#92400e; --pendbg:#fef3c7; --edit:#dbeafe;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2f343e; --zebra:#1f232b;
+      --acc:#f59e0b; --ok:#4ade80; --okbg:#0f2a19; --err:#f87171; --errbg:#2c1212;
+      --pend:#fbbf24; --pendbg:#2c220c; --edit:#172554; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{background:#1f2937;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  header h1{margin:0;font-size:18px;flex:1;min-width:200px}
+  header small{display:block;color:#d1d5db;font-weight:400;font-size:12px}
+  main{padding:12px 16px 90px}
+  .card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:3px}
+  input,select,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;min-height:38px;width:100%}
+  textarea{min-height:70px;resize:vertical}
+  .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+  button{font:600 14px system-ui,sans-serif;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--ln);background:var(--card);color:var(--tx)}
+  button.pri{background:var(--acc);border-color:var(--acc);color:#111}
+  #login{max-width:360px;margin:40px auto}
+  #login input{margin-bottom:10px}
+  .msg{border-radius:10px;padding:10px 12px;margin-bottom:12px}
+  .msg.ok{background:var(--okbg);color:var(--ok)} .msg.err{background:var(--errbg);color:var(--err)}
+  .tw{overflow:auto;max-height:55vh;border:1px solid var(--ln);border-radius:12px;background:var(--card)}
+  table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--ln);vertical-align:top;text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;z-index:2;background:var(--bg);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+  tbody tr{cursor:pointer}
+  tbody tr:nth-child(even) td{background:var(--zebra)}
+  tbody tr.cambio td{background:var(--edit)!important}
+  tbody tr.sel td{outline:2px solid var(--acc);outline-offset:-2px}
+  td.desc{max-width:280px;overflow:hidden;text-overflow:ellipsis}
+  td input{width:62px;min-height:32px;padding:4px 6px}
+  .down{color:var(--err);font-weight:700}
+  .pill{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;font-weight:600}
+  .sin{background:var(--pendbg);color:var(--pend)} .rev{background:var(--okbg);color:var(--ok)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px}
+  .full{grid-column:1/-1}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips button{padding:6px 10px;font-size:12px;border-radius:10px;text-align:left}
+  .chips button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .info{white-space:pre-wrap;color:var(--mut);font-size:13px;margin-top:10px}
+  .barra{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--ln);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}
+  .barra span{margin-right:auto;color:var(--mut)}
+  .hidden{display:none!important}
+  .mut{color:var(--mut)}
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>Revisión de tareas<small id="sub">Ingrese con su usuario</small></h1>
+  <button type="button" id="btnSalir" class="hidden">Salir</button>
+</header>
+<main>
+  <div id="resultado"></div>
+
+  <section class="card" id="login">
+    <label for="usuario">Usuario</label>
+    <input id="usuario" list="dlUsuarios" autocomplete="off">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <button type="button" class="pri" id="btnIngresar" style="width:100%">Ingresar</button>
+  </section>
+
+  <div id="app" class="hidden">
+    <section class="card filtros">
+      <div><label for="fVer">Ver</label><select id="fVer"><option value="TAREAS">Tareas</option><option value="CAJA">Cajas</option><option value="TORRE">Torres</option></select></div>
+      <div><label for="fArea">PIT / mina</label><select id="fArea"></select></div>
+      <div><label for="fDesde">Turnos desde</label><input id="fDesde" type="date"></div>
+      <div><label for="fHasta">hasta</label><input id="fHasta" type="date"></div>
+      <div id="dEstado"><label for="fEstado">Mostrar</label><select id="fEstado"><option value="SIN">Sin revisar</option><option value="REV">Revisadas</option><option value="">Todas</option></select></div>
+      <div><label for="fTexto">Buscar</label><input id="fTexto" placeholder="Equipo, técnico, cuadrilla…"></div>
+      <div><button type="button" id="btnCargar" class="pri" style="width:100%">Cargar</button></div>
+      <div><button type="button" id="btnExcel" style="width:100%">Descargar Excel</button></div>
+    </section>
+    <div class="tw" id="twT"><table>
+      <thead><tr>
+        <th>Fecha</th><th>Turno</th><th>PIT</th><th>G/C</th><th>Clase</th><th>Tipo de trabajo</th><th>Equipo / circuito</th>
+        <th>Inicio</th><th>Fin</th><th>Min DOWN</th><th>Técnicos</th><th>Descripción</th>
+        <th>Prod. h</th><th>Clima h</th><th>Desplaz. h</th><th>Espera h</th><th>Revisión</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
+    <div class="tw hidden" id="twI"><table>
+      <thead><tr><th>Fecha</th><th>Dónde</th><th>Grupo</th><th>Número</th><th>Tipo</th><th>Circuito</th><th>Mantenimiento</th><th>Hallazgos</th><th>Origen</th></tr></thead>
+      <tbody id="tbI"></tbody>
+    </table></div>
+    <p class="mut" id="cnt"></p>
+
+    <section class="card hidden" id="cardDet">
+      <b id="detTitulo"></b> <span class="mut" id="detSub"></span>
+      <div class="grid" id="form">
+        <div><label>¿Hubo DOWN?</label><select data-c="clase"><option>DOWN</option><option>NO DOWN</option></select></div>
+        <div class="full"><label>Tipo de trabajo</label><select data-c="tipo"></select></div>
+        <div><label>Equipo</label><input data-c="equipo"></div>
+        <div><label>Circuito</label><input data-c="circuito"></div>
+        <div><label>Estado de la tarea</label><select data-c="estado"></select></div>
+        <div data-solo="elec"><label>Hora parada</label><input type="time" data-c="hParada"></div>
+        <div><label>Hora inicio</label><input type="time" data-c="hInicio"></div>
+        <div data-solo="down"><label>Hora desenergización</label><input type="time" data-c="hDesen"></div>
+        <div data-solo="down"><label>Hora entrega</label><input type="time" data-c="hEntrega"></div>
+        <div><label>Hora fin</label><input type="time" data-c="hFin"></div>
+        <div data-solo="elec"><label>Componente que falló</label><select data-c="componente"></select></div>
+        <div data-solo="elec"><label>Modo de falla</label><select data-c="modo"></select></div>
+        <div class="full"><label>Descripción</label><textarea data-c="descripcion"></textarea></div>
+        <div class="full" data-solo="down"><label>Justificaciones</label><div class="chips" id="chJust"></div></div>
+        <div class="full" data-solo="down"><label>Línea de tiempo</label><textarea data-c="lineaTiempo"></textarea></div>
+        <div data-solo="down"><label>Cambio de plan</label><select data-c="cambioPlan"><option>No</option><option>Si</option></select></div>
+        <div data-solo="down"><label>Minutos cambio de plan</label><input data-c="minCambio" inputmode="numeric"></div>
+        <div class="full" data-solo="down"><label>Descripción del cambio de plan</label><textarea data-c="descCambio"></textarea></div>
+        <div><label>Cable cola intervenido</label><select data-c="cableCola"><option>No</option><option>Si</option></select></div>
+        <div class="full"><label>Inspección cable cola</label><textarea data-c="inspeccionCola"></textarea></div>
+      </div>
+      <div class="info" id="detInfo"></div>
+    </section>
+  </div>
+</main>
+<div class="barra hidden" id="barra">
+  <span id="pend">Sin cambios</span>
+  <button type="button" id="btnTodas">Dar por revisadas las de la lista</button>
+  <button type="button" class="pri" id="btnGuardar">Guardar</button>
+</div>
+<datalist id="dlUsuarios"></datalist>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var ses = null, datos = [], cambios = {}, actual = null;
+  var HORAS = ['PRODUCCION_H','CLIMA_H','DESPLAZAMIENTO_H','ESPERA_H'];
+  var COL = { clase:'CLASE', tipo:'TIPO_TRABAJO', equipo:'EQUIPO', circuito:'CIRCUITO', estado:'ESTADO_TAREA', descripcion:'DESCRIPCION',
+    componente:'COMPONENTE_FALLA', modo:'MODO_FALLA', lineaTiempo:'LINEA_TIEMPO', cambioPlan:'CAMBIO_PLAN', descCambio:'DESC_CAMBIO_PLAN',
+    minCambio:'MIN_CAMBIO_PLAN', cableCola:'CABLE_COLA', inspeccionCola:'INSPECCION_COLA',
+    hParada:'HORA_PARADA', hInicio:'HORA_INICIO', hDesen:'HORA_DESENERGIZACION', hEntrega:'HORA_ENTREGA', hFin:'HORA_FIN' };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function ls(k, v){ try{ if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; } if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+  function mostrar(t, h){ $('resultado').innerHTML = h ? '<div class="msg ' + t + '">' + h + '</div>' : ''; if (h) window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function iso(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function hora(fh){ return fh ? String(fh).slice(11, 16) : ''; }
+  function run(){ return google.script.run; }
+  function opts(sel, arr, v){ sel.innerHTML = '<option value=""></option>' + arr.map(function(x){ return '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join(''); if (v && arr.indexOf(v) < 0) sel.insertAdjacentHTML('beforeend', '<option selected>' + esc(v) + '</option>'); }
+
+  /* valor actual (con cambios sin guardar) de un campo del formulario o de una columna */
+  function valCampo(t, k){ var c = cambios[t.ID]; if (c && c.campos && k in c.campos) return c.campos[k]; if (k === 'justificaciones') return String(t.JUSTIFICACIONES || '').split(' | ').filter(Boolean); var v = t[COL[k]] || ''; return /^h[A-Z]/.test(k) ? hora(v) : v; }
+  function valCol(t, k){ var c = cambios[t.ID]; return c && k in c ? c[k] : (t[k] || ''); }
+
+  function entrar(){
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden'); $('btnSalir').classList.remove('hidden');
+    $('barra').classList.toggle('hidden', !ses.edita);
+    $('sub').textContent = ses.nombre + (ses.edita ? '' : ' · solo consulta');
+    $('fArea').innerHTML = '<option value="">Todos</option>' + (ses.areas || []).map(function(a){ return '<option>' + esc(a) + '</option>'; }).join('');
+    var hoy = new Date(); $('fHasta').value = iso(hoy); $('fDesde').value = iso(new Date(hoy.getTime() - 2 * 864e5));
+    if (!ses.edita) $('fEstado').value = '';
+    modoVista(); cargar();
+  }
+  $('btnIngresar').onclick = function(){
+    var u = $('usuario').value.trim(), p = $('pin').value.trim();
+    if (!u || !p){ mostrar('err', 'Escriba usuario y PIN.'); return; }
+    $('btnIngresar').disabled = true;
+    run().withSuccessHandler(function(r){
+      $('btnIngresar').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      ses = r; ses.usuario = r.nombre; ses.pin = p; ls('rev_ses', ses); mostrar('', ''); entrar();
+    }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar.'); }).ingresarSupervisor(u, p);
+  };
+  $('btnSalir').onclick = function(){
+    if (Object.keys(cambios).length && !confirm('Hay cambios sin guardar. ¿Salir?')) return;
+    cambios = {}; ls('rev_ses', null); location.reload();
+  };
+
+  var insp = { el: '', enc: [], filas: [] };
+  function verInsp(){ return $('fVer').value !== 'TAREAS'; }
+  function modoVista(){
+    var i = verInsp();
+    $('twT').classList.toggle('hidden', i); $('twI').classList.toggle('hidden', !i);
+    $('dEstado').classList.toggle('hidden', i);
+    $('barra').classList.toggle('hidden', i || !ses.edita);
+    if (i) $('cardDet').classList.add('hidden');
+  }
+  function colI(re){ for (var i = 0; i < insp.enc.length; i++) if (re.test(insp.enc[i].toUpperCase().replace(/[ÁÉÍÓÚ]/g, function(c){ return 'AEIOU'.charAt('ÁÉÍÓÚ'.indexOf(c)); }))) return i; return -1; }
+  function cargarInsp(){
+    var el = $('fVer').value;
+    $('tbI').innerHTML = ''; $('cnt').textContent = 'Cargando…';
+    var f = { elemento: el, area: $('fArea').value, desde: $('fDesde').value, hasta: $('fHasta').value };
+    run().withSuccessHandler(function(r){
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      insp = { el: el, enc: r.enc, filas: r.filas }; pintarInsp();
+    }).withFailureHandler(function(e){ $('cnt').textContent = 'No se pudo cargar: ' + (e && e.message || ''); }).getInspecciones(ses.usuario, ses.pin, f);
+  }
+  function inspVisibles(){
+    var q = $('fTexto').value.trim().toUpperCase();
+    return insp.filas.filter(function(o){ return !q || (o.fila.join(' ') + ' ' + o.hallazgos).toUpperCase().indexOf(q) >= 0; });
+  }
+  function pintarInsp(){
+    var cD = colI(/DONDE SE ENCUENTRA/), cG = colI(/^GRUPO/), cN = colI(/^NUMERO/), cT = colI(/^TIPO DE (CAJA|TORRE)/),
+        cC = colI(/^CIRCUITO/), cM = colI(/^TIPO DE MANTE/), n = insp.enc.length;
+    var v = inspVisibles(), g = function(o, c){ return c < 0 ? '' : esc(o.fila[c]); };
+    $('tbI').innerHTML = v.map(function(o){
+      return '<tr><td>' + esc(o.fecha ? o.fecha.slice(8, 10) + '/' + o.fecha.slice(5, 7) + '/' + o.fecha.slice(0, 4) : '') + '</td><td>' + g(o, cD) + '</td><td>' + g(o, cG) + '</td><td>' + g(o, cN) +
+        '</td><td>' + g(o, cT) + '</td><td>' + g(o, cC) + '</td><td>' + g(o, cM) + '</td><td class="' + (o.hallazgos ? 'down' : '') + '">' + esc(o.hallazgos || 'Sin hallazgos') +
+        '</td><td>' + esc(o.fila[n - 2]) + '</td></tr>';
+    }).join('');
+    $('cnt').textContent = v.length + (insp.el === 'TORRE' ? ' inspecciones de torres' : ' inspecciones de cajas') + (v.length >= 2000 ? ' (máximo 2000; acote las fechas)' : '');
+  }
+  $('fVer').onchange = function(){
+    if (Object.keys(cambios).length && !confirm('Hay cambios sin guardar. ¿Cambiar de vista y perderlos?')){ this.value = 'TAREAS'; return; }
+    cambios = {}; pintarPend(); modoVista(); cargar();
+  };
+
+  function cargar(){
+    if (verInsp()){ cargarInsp(); return; }
+    if (Object.keys(cambios).length && !confirm('Hay cambios sin guardar. ¿Cargar de nuevo y perderlos?')) return;
+    cambios = {}; actual = null; pintarPend(); $('cardDet').classList.add('hidden');
+    $('cnt').textContent = 'Cargando…';
+    var f = { area: $('fArea').value, desde: $('fDesde').value, hasta: $('fHasta').value, estado: $('fEstado').value };
+    run().withSuccessHandler(function(r){
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      datos = r.tareas; pintar();
+    }).withFailureHandler(function(e){ $('cnt').textContent = 'No se pudo cargar: ' + (e && e.message || ''); }).getRevision(ses.usuario, ses.pin, f);
+  }
+  $('btnCargar').onclick = cargar;
+  $('fTexto').addEventListener('input', function(){ if (verInsp()) pintarInsp(); else pintar(); });
+
+  function visibles(){
+    var q = $('fTexto').value.trim().toUpperCase();
+    return datos.filter(function(t){
+      return !q || [t.EQUIPO, t.CIRCUITO, t.TECNICOS, t.TIPO_TRABAJO, t.REPORTADO_POR, 'G' + t.GRUPO + ' C' + t.CUADRILLA, t.DESCRIPCION].join(' ').toUpperCase().indexOf(q) >= 0;
+    });
+  }
+  function pillRev(t){
+    if (cambios[t.ID]) return '<span class="pill sin">Por guardar</span>';
+    return t.REVISION === 'Revisado' ? '<span class="pill rev">Revisado · ' + esc(String(t.REVISADO_POR).split(' ')[0]) + '</span>' : '<span class="pill sin">Sin revisar</span>';
+  }
+  function filaHtml(t){
+    var inp = function(k){ return ses.edita ? '<input data-k="' + k + '" inputmode="decimal" value="' + esc(valCol(t, k)) + '">' : esc(t[k]); };
+    return '<tr data-id="' + esc(t.ID) + '" class="' + (cambios[t.ID] ? 'cambio ' : '') + (actual && actual.ID === t.ID ? 'sel' : '') + '">' +
+      '<td>' + esc(t.FECHA_TURNO.slice(8, 10) + '/' + t.FECHA_TURNO.slice(5, 7)) + '</td><td>' + esc(t.TURNO) + '</td><td>' + esc(t.AREA) + '</td>' +
+      '<td>' + esc(t.GRUPO + '/' + t.CUADRILLA) + '</td><td class="' + (valCampo(t, 'clase') === 'DOWN' ? 'down' : '') + '">' + esc(valCampo(t, 'clase')) + '</td>' +
+      '<td>' + esc(valCampo(t, 'tipo')) + '</td><td>' + esc([valCampo(t, 'equipo'), valCampo(t, 'circuito')].filter(Boolean).join(' · ')) + '</td>' +
+      '<td>' + esc(valCampo(t, 'hInicio')) + '</td><td>' + esc(valCampo(t, 'hFin')) + '</td><td>' + esc(t.MIN_DOWN) + '</td>' +
+      '<td>' + esc(t.TECNICOS) + '</td><td class="desc">' + esc(valCampo(t, 'descripcion')) + '</td>' +
+      HORAS.map(function(k){ return '<td>' + inp(k) + '</td>'; }).join('') + '<td>' + pillRev(t) + '</td></tr>';
+  }
+  function pintar(){
+    var v = visibles();
+    $('tb').innerHTML = v.map(filaHtml).join('') || '<tr><td colspan="17" class="mut">No hay tareas con ese filtro.</td></tr>';
+    $('cnt').textContent = v.length + ' tareas' + (datos.length >= 600 ? ' (máximo 600: acorte las fechas)' : '') + (ses.edita ? ' · toque una fila para ver y corregir la tarea' : ' · toque una fila para ver el detalle');
+  }
+  function repintarFila(id){
+    setTimeout(function(){
+      var t = datos.find(function(x){ return x.ID === id; }); var tr = document.querySelector('tr[data-id="' + id + '"]');
+      if (!t || !tr || !tr.parentNode) return;
+      var tmp = document.createElement('tbody'); tmp.innerHTML = filaHtml(t);
+      var nuevo = tmp.firstChild, foco = document.activeElement && tr.contains(document.activeElement) ? document.activeElement.dataset.k : '';
+      tr.parentNode.replaceChild(nuevo, tr);
+      if (foco){ var el = nuevo.querySelector('[data-k="' + foco + '"]'); if (el) el.focus(); }
+    }, 0);
+  }
+  function cambio(id){ return cambios[id] || (cambios[id] = { campos: {} }); }
+  function pintarPend(){ var n = Object.keys(cambios).length; $('pend').textContent = n ? n + ' tarea(s) por guardar' : 'Sin cambios'; }
+
+  $('tb').addEventListener('change', function(ev){
+    var el = ev.target; if (!el.dataset.k) return;
+    var id = el.closest('tr').dataset.id; cambio(id)[el.dataset.k] = el.value.trim();
+    repintarFila(id); pintarPend();
+  });
+  $('tb').addEventListener('click', function(ev){
+    var tr = ev.target.closest('tr[data-id]'); if (!tr || ev.target.closest('input')) return;
+    actual = datos.find(function(x){ return x.ID === tr.dataset.id; });
+    document.querySelectorAll('#tb tr.sel').forEach(function(x){ x.classList.remove('sel'); }); tr.classList.add('sel');
+    pintarDetalle();
+  });
+
+  /* ---------- detalle / corrección ---------- */
+  function pintarDetalle(){
+    var t = actual; if (!t) return;
+    $('detTitulo').textContent = t.FECHA_TURNO + ' · ' + t.TURNO + ' · ' + t.AREA + ' · G' + t.GRUPO + '/C' + t.CUADRILLA;
+    $('detSub').textContent = 'Reportó: ' + t.REPORTADO_POR + ' · Técnicos: ' + t.TECNICOS;
+    var f = $('form');
+    var clase = valCampo(t, 'clase');
+    opts(f.querySelector('[data-c=tipo]'), (ses.tipos || []).filter(function(x){ return x.c === clase; }).map(function(x){ return x.t; }), valCampo(t, 'tipo'));
+    opts(f.querySelector('[data-c=estado]'), ses.estados || [], valCampo(t, 'estado'));
+    opts(f.querySelector('[data-c=componente]'), ses.componentes || [], valCampo(t, 'componente'));
+    opts(f.querySelector('[data-c=modo]'), ses.modos || [], valCampo(t, 'modo'));
+    f.querySelectorAll('[data-c]').forEach(function(el){
+      var k = el.dataset.c; if (['tipo','estado','componente','modo'].indexOf(k) < 0) el.value = valCampo(t, k) || (k === 'cambioPlan' || k === 'cableCola' ? 'No' : '');
+      el.disabled = !ses.edita;
+    });
+    var just = valCampo(t, 'justificaciones');
+    $('chJust').innerHTML = (ses.justificaciones || []).concat(just.filter(function(j){ return (ses.justificaciones || []).indexOf(j) < 0; }))
+      .map(function(j){ return '<button type="button"' + (just.indexOf(j) >= 0 ? ' class="sel"' : '') + (ses.edita ? '' : ' disabled') + '>' + esc(j) + '</button>'; }).join('');
+    var down = clase === 'DOWN', elec = down && /EL[EÉ]CTRICO/i.test(valCampo(t, 'tipo'));
+    f.querySelectorAll('[data-solo]').forEach(function(el){ el.classList.toggle('hidden', el.dataset.solo === 'down' ? !down : !elec); });
+    var info = [];
+    if (t.COMP_AGREGADOS) info.push('Instalados: ' + t.COMP_AGREGADOS);
+    if (t.COMP_RETIRADOS) info.push('Retirados: ' + t.COMP_RETIRADOS);
+    if (t.ALERTAS_INVENTARIO) info.push('Alertas de inventario: ' + t.ALERTAS_INVENTARIO);
+    if (t.MIN_DOWN) info.push('Minutos DOWN: ' + t.MIN_DOWN + ' · Duración: ' + t.MIN_TOTAL + ' min (se recalculan al guardar)');
+    if (t.REVISADO_POR) info.push('Revisado por ' + t.REVISADO_POR + ' · ' + t.FECHA_REVISION);
+    if (t.NOTA_REVISION) info.push(t.NOTA_REVISION);
+    if (ses.edita) info.push('Cables, cajas y torres no se corrigen aquí: ya movieron el inventario.');
+    $('detInfo').textContent = info.join('\n');
+    $('cardDet').classList.remove('hidden');
+    $('cardDet').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  $('form').addEventListener('change', function(ev){
+    var el = ev.target; if (!el.dataset.c || !actual) return;
+    cambio(actual.ID).campos[el.dataset.c] = el.value;
+    if (el.dataset.c === 'clase') { cambio(actual.ID).campos.tipo = ''; }
+    repintarFila(actual.ID); pintarPend();
+    if (el.dataset.c === 'clase' || el.dataset.c === 'tipo') pintarDetalle();
+  });
+  $('chJust').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b || !actual || !ses.edita) return;
+    b.classList.toggle('sel');
+    cambio(actual.ID).campos.justificaciones = Array.prototype.filter.call($('chJust').children, function(x){ return x.classList.contains('sel'); }).map(function(x){ return x.textContent; });
+    repintarFila(actual.ID); pintarPend();
+  });
+
+  /* ---------- guardar ---------- */
+  $('btnTodas').onclick = function(){
+    var v = visibles().filter(function(t){ return t.REVISION !== 'Revisado' && !cambios[t.ID]; });
+    if (!v.length){ mostrar('err', 'No hay tareas sin revisar en la lista.'); return; }
+    if (!confirm('¿Dar por revisadas las ' + v.length + ' tareas sin revisar de la lista? Luego toque Guardar.')) return;
+    v.forEach(function(t){ cambio(t.ID); });
+    pintar(); pintarPend();
+  };
+  $('btnGuardar').onclick = function(){
+    var ids = Object.keys(cambios);
+    if (!ids.length){ mostrar('err', 'No hay cambios.'); return; }
+    var lista = ids.map(function(id){
+      var t = datos.find(function(x){ return x.ID === id; }), c = cambios[id];
+      return { id: id, campos: c.campos || {}, prod: valCol(t, 'PRODUCCION_H'), clima: valCol(t, 'CLIMA_H'), desp: valCol(t, 'DESPLAZAMIENTO_H'), espera: valCol(t, 'ESPERA_H') };
+    });
+    $('btnGuardar').disabled = true;
+    run().withSuccessHandler(function(r){
+      $('btnGuardar').disabled = false;
+      if (!r.ok){
+        mostrar('err', esc(r.error) + '. No se guardó nada; corrija y vuelva a guardar.');
+        if (r.id){ actual = datos.find(function(x){ return x.ID === r.id; }); pintar(); pintarDetalle(); }
+        return;
+      }
+      r.tareas.forEach(function(n){ var i = datos.findIndex(function(x){ return x.ID === n.ID; }); if (i >= 0) datos[i] = n; if (actual && actual.ID === n.ID) actual = n; });
+      cambios = {}; pintarPend(); pintar(); if (actual) pintarDetalle();
+      mostrar('ok', 'Guardado: ' + r.guardadas + ' tarea(s) revisada(s).');
+    }).withFailureHandler(function(){ $('btnGuardar').disabled = false; mostrar('err', 'No se pudo guardar. Revise la señal e intente de nuevo; los cambios siguen en pantalla.'); })
+      .guardarRevision(ses.usuario, ses.pin, lista);
+  };
+  /* ---------- descargar Excel (lo que se ve en la tabla) ---------- */
+  var EXCEL = [['ID','ID'],['Fecha turno','FECHA_TURNO'],['Turno','TURNO'],['PIT / mina','AREA'],['Grupo','GRUPO'],['Cuadrilla','CUADRILLA'],
+    ['Supervisor del turno','SUPERVISOR'],['Técnicos','TECNICOS'],['Operadores','OPERADORES'],['Enrollacables','ENROLLACABLES'],
+    ['DOWN / NO DOWN','CLASE'],['Tipo de trabajo','TIPO_TRABAJO'],['Equipo','EQUIPO'],['Circuito','CIRCUITO'],['Estado de la tarea','ESTADO_TAREA'],
+    ['Hora parada','HORA_PARADA'],['Hora inicio','HORA_INICIO'],['Hora desenergización','HORA_DESENERGIZACION'],['Hora entrega','HORA_ENTREGA'],['Hora fin','HORA_FIN'],
+    ['Minutos DOWN','MIN_DOWN'],['Minutos totales','MIN_TOTAL'],['Componente que falló','COMPONENTE_FALLA'],['Modo de falla','MODO_FALLA'],
+    ['Justificaciones','JUSTIFICACIONES'],['Línea de tiempo','LINEA_TIEMPO'],['Cambio de plan','CAMBIO_PLAN'],['Descripción cambio de plan','DESC_CAMBIO_PLAN'],
+    ['Minutos cambio de plan','MIN_CAMBIO_PLAN'],['Cable cola','CABLE_COLA'],['Inspección cable cola','INSPECCION_COLA'],['Descripción','DESCRIPCION'],
+    ['Componentes instalados','COMP_AGREGADOS'],['Componentes retirados','COMP_RETIRADOS'],['Producción (h)','PRODUCCION_H'],['Clima (h)','CLIMA_H'],
+    ['Desplazamiento (h)','DESPLAZAMIENTO_H'],['Espera (h)','ESPERA_H'],['Revisión','REVISION'],['Revisado por','REVISADO_POR'],['Fecha revisión','FECHA_REVISION'],
+    ['Nota de revisión','NOTA_REVISION'],['Reportado por','REPORTADO_POR'],['Fecha registro','FECHA_REGISTRO']];
+  var NUM = ['MIN_DOWN','MIN_TOTAL','MIN_CAMBIO_PLAN','PRODUCCION_H','CLIMA_H','DESPLAZAMIENTO_H','ESPERA_H'];
+  function excelInsp(){
+    var v = inspVisibles();
+    if (!v.length){ mostrar('err', 'No hay inspecciones en la lista para descargar.'); return; }
+    var filas = [insp.enc.concat(['HALLAZGOS'])].concat(v.map(function(o){ return o.fila.concat([o.hallazgos]); }));
+    var ws = XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols'] = filas[0].map(function(h){ return { wch: h === 'HALLAZGOS' ? 60 : 18 }; });
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length - 1, c: filas[0].length - 1 } }) };
+    var wb = XLSX.utils.book_new(), nom = insp.el === 'TORRE' ? 'Torres' : 'Cajas';
+    XLSX.utils.book_append_sheet(wb, ws, nom);
+    XLSX.writeFile(wb, nom + '_' + ($('fArea').value || 'todas').replace(/\s+/g, '') + '_' + $('fDesde').value + '_a_' + $('fHasta').value + '.xlsx');
+  }
+  $('btnExcel').onclick = function(){
+    if (typeof XLSX === 'undefined'){ mostrar('err', 'No se pudo cargar la herramienta de Excel. Revise la conexión y recargue la página.'); return; }
+    if (verInsp()){ excelInsp(); return; }
+    var v = visibles();
+    if (!v.length){ mostrar('err', 'No hay tareas en la lista para descargar.'); return; }
+    if (Object.keys(cambios).length) mostrar('err', 'Ojo: hay cambios sin guardar. El Excel sale con lo que está guardado.');
+    var filas = [EXCEL.map(function(c){ return c[0]; })].concat(v.map(function(t){
+      return EXCEL.map(function(c){
+        var x = t[c[1]] == null ? '' : String(t[c[1]]);
+        if (c[1] === 'REVISION') return x === 'Revisado' ? 'Revisado' : 'Sin revisar';
+        if (NUM.indexOf(c[1]) >= 0 && x !== '' && !isNaN(Number(x.replace(',', '.')))) return Number(x.replace(',', '.'));
+        return x;
+      });
+    }));
+    var ws = XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols'] = EXCEL.map(function(c){ return { wch: /DESCRIPCION|LINEA_TIEMPO|INSPECCION|NOTA|JUSTIF|COMP_/.test(c[1]) ? 50 : 16 }; });
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length - 1, c: EXCEL.length - 1 } }) };
+    var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Tareas');
+    XLSX.writeFile(wb, 'Tareas_' + ($('fArea').value || 'todas').replace(/\s+/g, '') + '_' + $('fDesde').value + '_a_' + $('fHasta').value + '.xlsx');
+  };
+
+  window.addEventListener('beforeunload', function(e){ if (Object.keys(cambios).length){ e.preventDefault(); e.returnValue = ''; } });
+
+  run().withSuccessHandler(function(x){ $('dlUsuarios').innerHTML = x.usuarios.map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); }).getInicioRevision();
+  ses = ls('rev_ses');
+  if (ses && ses.tipos) entrar(); else ses = null;
+})();
+</script>
+</body>
+</html>

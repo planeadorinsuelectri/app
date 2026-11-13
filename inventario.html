@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Red eléctrica – reporte</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#d1d5db;
+    --pri:#1f2937; --acc:#d97706; --acc2:#fef3c7; --ok:#15803d; --okbg:#dcfce7;
+    --err:#b91c1c; --errbg:#fee2e2; --warn:#92400e; --warnbg:#fef3c7;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2f343e;
+      --pri:#e5e7eb; --acc:#f59e0b; --acc2:#3a2a0a; --ok:#4ade80; --okbg:#0f2a19;
+      --err:#f87171; --errbg:#2c1212; --warn:#fbbf24; --warnbg:#2c220c; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:#1f2937;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
+  header h1{font-size:17px;margin:0;flex:1;line-height:1.2}
+  header small{display:block;font-weight:400;color:#d1d5db;font-size:12px}
+  .net{font-size:12px;padding:3px 8px;border-radius:99px;background:#374151;white-space:nowrap}
+  .net.on{background:#166534}.net.off{background:#991b1b}
+  main{max-width:560px;margin:0 auto;padding:12px 12px 120px}
+  .card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+  label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
+  input,select,textarea{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);
+    border-radius:8px;padding:12px;min-height:48px}
+  textarea{min-height:80px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);border-color:transparent}
+  .seg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .seg button{min-height:52px;border:1px solid var(--ln);background:var(--bg);color:var(--tx);border-radius:10px;
+    font:600 15px system-ui,sans-serif;padding:8px;cursor:pointer}
+  .seg button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .elem{border:1px dashed var(--ln);border-radius:10px;padding:10px;margin-bottom:10px}
+  .elem-h{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:6px}
+  .elem-h button{border:none;background:none;color:var(--mut);font-size:22px;cursor:pointer;padding:0 6px}
+  .row2{display:grid;grid-template-columns:1.3fr 1fr;gap:8px}
+  .info{font-size:13px;margin-top:6px;padding:8px;border-radius:8px;background:var(--bg);color:var(--mut)}
+  .info.warn{background:var(--warnbg);color:var(--warn)}
+  .info label{display:flex;gap:8px;align-items:center;font-weight:400;margin:6px 0;font-size:13px}
+  .info input[type=radio]{width:auto;min-height:auto}
+  .tipoBox{margin-top:6px;padding:10px;border-radius:8px;border:1px solid var(--ln);font-size:14px}
+  .tipoBox.pend{border-color:var(--acc);background:var(--acc2)}
+  .tipoBox .bt{display:flex;gap:6px;margin-top:8px}
+  .tipoBox .bt button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--ln);background:var(--card);color:var(--tx);font:600 14px system-ui,sans-serif}
+  .tipoBox .bt button.si{border-color:var(--ok);color:var(--ok)}
+  .tipoBox select{margin-top:6px}
+  .tipoBox .okt{color:var(--ok);font-weight:600}
+  .lnk{background:none;border:none;color:var(--acc);text-decoration:underline;font:inherit;font-size:13px;padding:0 4px;cursor:pointer}
+  .add{display:flex;gap:6px;flex-wrap:wrap}
+  .add button{flex:1;min-height:44px;border:1px solid var(--ln);border-radius:8px;background:transparent;color:var(--tx);font:600 14px system-ui,sans-serif}
+  .send{position:fixed;left:0;right:0;bottom:0;padding:12px;background:var(--card);border-top:1px solid var(--ln)}
+  .send button{display:block;width:100%;max-width:560px;margin:0 auto;min-height:56px;border:none;border-radius:12px;
+    background:var(--acc);color:#111;font:700 18px system-ui,sans-serif;cursor:pointer}
+  .msg{border-radius:10px;padding:12px;margin-bottom:12px;font-size:14px}
+  .msg.ok{background:var(--okbg);color:var(--ok)}
+  .msg.err{background:var(--errbg);color:var(--err)}
+  .msg.warn{background:var(--warnbg);color:var(--warn)}
+  .msg ul{margin:6px 0 0;padding-left:18px}
+  .cola-item{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid var(--ln)}
+  .cola-item button{border:none;background:none;color:var(--err);font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chips button{min-height:44px;padding:8px 14px;border:1px solid var(--ln);border-radius:99px;background:var(--bg);color:var(--tx);font:600 14px system-ui,sans-serif}
+  .chips button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  /* vista del circuito */
+  .vc{margin-top:10px;border:1px solid var(--ln);border-radius:10px;overflow:hidden}
+  .vc-h{background:var(--acc2);padding:8px 10px;font-size:13px}
+  .vc-h b{font-size:15px}
+  .vc-b{max-height:380px;overflow-y:auto}
+  .fila{display:flex;flex-wrap:wrap;gap:2px 12px;padding:8px 10px;border-top:1px solid var(--ln);font-size:14px;cursor:pointer}
+  .fila:nth-child(even){background:var(--bg)}
+  .fila .i{color:var(--acc);font-weight:700;min-width:22px}
+  .fila i{font-style:normal;color:var(--mut);font-size:12px}
+  .fila.sel{background:var(--acc2)!important;box-shadow:inset 4px 0 0 var(--acc)}
+  .fila.sin{cursor:default}
+  .nuevo{padding:8px 10px;background:var(--okbg);color:var(--ok);font-weight:700;font-size:13px;border-top:2px dashed var(--ok)}
+  .tramo{border:2px solid var(--acc);border-radius:12px;padding:10px;margin-bottom:12px}
+  .tramo-h{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:var(--acc);margin-bottom:8px}
+  .orf{margin-top:8px;padding:10px;border-radius:8px;border:1px solid var(--err);background:var(--errbg);color:var(--tx);font-size:14px}
+  .orf .bt{display:flex;gap:6px;margin-top:8px}
+  .orf .bt button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--ln);background:var(--card);color:var(--tx);font:600 14px system-ui,sans-serif}
+  .orf .bt button.sel,.orf .seg button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .orf input{margin-top:8px;background:var(--card)}
+  .orf .seg{margin-top:8px}
+  .hidden{display:none!important}
+  .mut{color:var(--mut);font-size:13px}
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>Movimiento de cable, cajas y torres<small id="mina">Cargando…</small></h1>
+  <a id="lnkTareas" class="net" style="color:#fff;text-decoration:none" target="_top" hidden>Tareas</a>
+  <span id="net" class="net">…</span>
+</header>
+
+<main>
+  <div id="resultado"></div>
+
+  <section class="card" id="cardCola" hidden>
+    <h2>Pendientes por enviar</h2>
+    <p class="mut">Se envían solos cuando haya señal. No cierre esta pestaña.</p>
+    <div id="cola"></div>
+  </section>
+
+  <section class="card" id="cardIngreso">
+    <h2>Ingreso</h2>
+    <label for="mina" style="margin-top:0">Mina</label>
+    <select id="minaSel"><option value="">Cargando…</option></select>
+    <label for="usuario">Usuario</label>
+    <input id="usuario" list="dlUsuarios" autocomplete="off" placeholder="Escriba y elija su nombre">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6">
+    <div class="add" style="margin-top:12px"><button type="button" id="btnIngresar">Ingresar</button></div>
+  </section>
+
+  <section class="card hidden" id="cardQuien">
+    <h2>Quién reporta</h2>
+    <p style="margin:0"><b id="lblUsuario"></b> · <span id="lblMina"></span>
+      <button type="button" class="lnk" id="btnSalir">cambiar</button></p>
+    <label>Turno</label>
+    <div class="seg" id="turno">
+      <button type="button" data-v="Día">Día</button>
+      <button type="button" data-v="Noche">Noche</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Qué hizo</h2>
+    <div class="seg" id="accion">
+      <button type="button" data-v="INSTALAR">Instalar / trasladar a circuito</button>
+      <button type="button" data-v="ACOPIO">Retirar a acopio</button>
+      <button type="button" data-v="ESTADO">Cambiar estado</button>
+      <button type="button" data-v="BAJA">Dar de baja</button>
+    </div>
+
+    <div id="bxUbic" class="hidden">
+      <label for="ubicacion" id="lblUbic">Circuito destino</label>
+      <input id="ubicacion" autocomplete="off">
+      <div id="vistaCirc"></div>
+    </div>
+    <div id="bxEquipo" class="hidden">
+      <label for="equipo">Pala / equipo</label>
+      <input id="equipo" list="dlEquipos" autocomplete="off" placeholder="Ej: Pala 48 (vacío si no aplica)">
+      <label for="cajaRef">Instalar debajo de la caja <span class="mut">(referencia)</span></label>
+      <input id="cajaRef" autocomplete="off" autocapitalize="characters" placeholder="Ej: 229B · vacío = al final">
+      <p class="mut" id="infoRef" style="margin:4px 0 0">Esta caja NO se mueve. El cable y la caja nuevos quedan en la fila de abajo.</p>
+      <label>Detalles del tramo <span class="mut">(opcional)</span></label>
+      <div class="chips" id="detalles"></div>
+    </div>
+    <div id="bxEstado" class="hidden">
+      <label>Estado en que queda</label>
+      <div class="seg" id="estado">
+        <button type="button" data-v="Disponible">Disponible</button>
+        <button type="button" data-v="No disponible">No disponible</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Elementos</h2>
+    <p class="mut" style="margin-top:0" id="hintElem"></p>
+    <div id="elementos"></div>
+    <div class="add hidden" id="addTramo">
+      <button type="button" id="btnTramo">+ Otro tramo (cable y caja)</button>
+    </div>
+    <div class="add" id="addLibre">
+      <button type="button" data-add="CABLE">+ Cable</button>
+      <button type="button" data-add="CAJA">+ Caja</button>
+      <button type="button" data-add="TORRE">+ Torre</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Observaciones</h2>
+    <textarea id="obs" placeholder="Daños, motivo, referencia del sitio…"></textarea>
+  </section>
+</main>
+
+<div class="send"><button id="btnEnviar" type="button">Enviar reporte</button></div>
+
+<datalist id="dlTecnicos"></datalist>
+<datalist id="dlUsuarios"></datalist>
+<datalist id="dlCircuitos"></datalist>
+<datalist id="dlAcopios"></datalist>
+<datalist id="dlEquipos"></datalist>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var KEY_COLA = 'red_cola', KEY_LISTAS = 'red_listas', KEY_USER = 'red_user', KEY_SES = 'red_sesion';
+  var ses = null;   // { usuario, pin, mina, nombreMina }
+  var L = {tecnicos:[],circuitos:[],acopios:[],equipos:[],tiposCable:['#2','2/0','4/0','2/0 25kV','300 MCM','Jumper'],
+           tiposTorre:['Trípode','Mástil','Enana'],tiposCaja:['8 kV','25 kV'],
+           detalles:['Feeder','Cola','Tubo','Bajante','Caja 25'],
+           reglas:{letrasCaja:'AB',letrasCable:'',permitirNN:false,letraObligatoria:true},
+           mina:'',grupos:[],items:[]};
+  var NOM = {CABLE:'cable', CAJA:'caja', TORRE:'torre'};
+  var st = {turno:'', accion:'', estado:''};
+  var enviando = false, seq = 0;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function ls(k, v){
+    try{
+      if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; }
+      localStorage.setItem(k, JSON.stringify(v));
+    }catch(e){ return null; }
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function gs(){ return (typeof google !== 'undefined' && google.script && google.script.run) ? google.script.run : null; }
+  /* igual que normalizar_ del servidor: "ED-067" = "ED67", "035B" = "35B" */
+  function norm(n){
+    return String(n == null ? '' : n).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+      .replace(/[^A-Z0-9]/g, '').replace(/(^|[A-Z])0+(?=\d)/g, '$1');
+  }
+
+  /* ---------- segmentados ---------- */
+  function seg(id, key, cb){
+    $(id).addEventListener('click', function(ev){
+      var b = ev.target.closest('button'); if(!b) return;
+      st[key] = b.dataset.v;
+      Array.prototype.forEach.call($(id).children, function(x){ x.classList.toggle('sel', x === b); });
+      if (cb) cb();
+    });
+  }
+  function marcar(id, v){
+    Array.prototype.forEach.call($(id).children, function(x){ x.classList.toggle('sel', x.dataset.v === v); });
+  }
+  seg('turno','turno', guardarUsuario);
+  seg('estado','estado');
+  seg('accion','accion', pintarAccion);
+
+  function pintarAccion(){
+    var a = st.accion;
+    $('bxUbic').classList.toggle('hidden', !(a === 'INSTALAR' || a === 'ACOPIO'));
+    $('bxEquipo').classList.toggle('hidden', a !== 'INSTALAR');
+    $('bxEstado').classList.toggle('hidden', !(a === 'ACOPIO' || a === 'ESTADO'));
+    $('lblUbic').textContent = a === 'ACOPIO' ? 'Patio / sitio de acopio' : 'Circuito destino';
+    $('ubicacion').setAttribute('list', a === 'ACOPIO' ? 'dlAcopios' : 'dlCircuitos');
+    $('ubicacion').placeholder = a === 'ACOPIO' ? 'Ej: PATIO CABLE PIT 2' : 'Ej: Circuito R';
+    if ((a === 'INSTALAR' ? 'par' : 'libre') !== modoElem) elementosBase();
+    pintarCircuito();
+  }
+
+  /* ---------- vista del circuito destino ---------- */
+  function buscarGrupo(txt){
+    var u = String(txt || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    if (!u) return null;
+    return (L.grupos || []).find(function(g){
+      var n = g.ubicacion.toUpperCase().replace(/\s+/g, ' ');
+      return n === u || n === 'CIRCUITO ' + u;
+    }) || null;
+  }
+  function nums(arr, conTipo){
+    return arr.map(function(x){ return '<b>' + esc(x.numero) + '</b>' + (conTipo && x.tipo ? ' <i>' + esc(x.tipo) + '</i>' : ''); }).join(' / ');
+  }
+  function txtNuevos(donde){
+    var n = document.querySelectorAll('#elementos .tramo').length;
+    return n > 1 ? donde + ' quedan los ' + n + ' tramos nuevos, uno debajo del otro'
+      : donde + ' queda el cable y la caja nuevos';
+  }
+  function pintarCircuito(){
+    var box = $('vistaCirc');
+    if (st.accion !== 'INSTALAR'){ box.innerHTML = ''; return; }
+    var txt = $('ubicacion').value.trim();
+    var g = buscarGrupo(txt);
+    if (!g){
+      box.innerHTML = txt ? '<p class="mut" style="margin:6px 0 0">Ese circuito no tiene elementos registrados. Revise el nombre en la lista.</p>' : '';
+      return;
+    }
+    if ($('ubicacion').value !== g.ubicacion) $('ubicacion').value = g.ubicacion;
+    if (!$('equipo').value.trim() && g.equipos.length === 1) $('equipo').value = g.equipos[0];
+    var ref = norm($('cajaRef').value), hayRef = false;
+    var filas = g.tramos.map(function(t, n){
+      var cajas = t.cajas.map(function(c){ return c.numero; });
+      var sel = ref && cajas.some(function(c){ return norm(c) === ref; });
+      if (sel) hayRef = true;
+      var partes = ['<span class="i">' + (n + 1) + '.</span>'];
+      if (t.cables.length) partes.push('<span>Cable ' + nums(t.cables, true) + '</span>');
+      if (t.cajas.length) partes.push('<span>Caja ' + nums(t.cajas, false) + '</span>');
+      if (t.t1.length || t.t2.length) partes.push('<span>Torres ' + nums(t.t1.concat(t.t2), false) + '</span>');
+      if (t.detalles) partes.push('<i>' + esc(t.detalles) + '</i>');
+      return '<div class="fila' + (sel ? ' sel' : '') + (cajas.length ? '' : ' sin') + '" data-caja="' + esc(cajas[0] || '') + '">' +
+        partes.join('') + '</div>' + (sel ? '<div class="nuevo">▼ ' + txtNuevos('Aquí') + '</div>' : '');
+    }).join('');
+    if (!hayRef) filas += '<div class="nuevo">▼ ' + (ref ? 'La caja ' + esc($('cajaRef').value) + ' no está en este circuito: ' : '') +
+      txtNuevos('Al final') + '</div>';
+    box.innerHTML = '<div class="vc"><div class="vc-h"><b>Así está hoy ' + esc(g.ubicacion) + '</b>' +
+      (g.equipos.length ? ' · ' + esc(g.equipos.join(' / ')) : '') +
+      '<br>Toque la fila que va ARRIBA del tramo nuevo.' +
+      (L.generado ? ' <span class="mut">Datos de ' + esc(L.generado) + '</span>' : '') + '</div>' +
+      '<div class="vc-b">' + filas + '</div></div>';
+    box.querySelectorAll('.fila').forEach(function(f){
+      f.onclick = function(){
+        if (!f.dataset.caja){ $('infoRef').textContent = 'Esa fila no tiene caja. Toque una fila que tenga caja.'; $('infoRef').style.color = 'var(--err)'; return; }
+        $('cajaRef').value = f.dataset.caja;
+        refCambio();
+      };
+    });
+  }
+  $('ubicacion').addEventListener('change', pintarCircuito);
+  $('ubicacion').addEventListener('input', function(){ if (buscarGrupo(this.value)) pintarCircuito(); });
+
+  function refCambio(){
+    var v = $('cajaRef').value.trim().toUpperCase(); $('cajaRef').value = v;
+    var ok = !v || /^\d+[A-Z]?$/.test(v);
+    $('infoRef').textContent = ok ? 'Esta caja NO se mueve. El cable y la caja nuevos quedan en la fila de abajo.'
+      : 'Caja de referencia inválida: escríbala pegada, sin espacios (ej: 229B).';
+    $('infoRef').style.color = ok ? '' : 'var(--err)';
+    pintarCircuito();
+  }
+  $('cajaRef').addEventListener('change', refCambio);
+
+  /* ---------- elementos ---------- */
+  function opciones(arr, ph){ return '<option value="">' + (ph || 'Tipo…') + '</option>' + arr.map(function(t){
+    return '<option>' + esc(t) + '</option>'; }).join(''); }
+  function tiposDe(el){ return el === 'CABLE' ? L.tiposCable : el === 'TORRE' ? L.tiposTorre : L.tiposCaja; }
+
+  function agregarElemento(tipo, posicion, cont){
+    seq++;
+    var d = document.createElement('div');
+    d.className = 'elem'; d.dataset.elemento = tipo; d.dataset.k = seq;
+    var titulo = tipo === 'CABLE' ? 'Cable' : tipo === 'CAJA' ? 'Caja' : 'Torre' + (posicion ? ' ' + posicion : '');
+    var numHtml = '<input class="num" placeholder="Número' + (tipo === 'CAJA' ? ' (ej: 309B)' : '') + '" autocomplete="off" autocapitalize="characters"' +
+      (tipo === 'CABLE' && !L.reglas.letrasCable ? ' inputmode="numeric"' : '') + '>';
+    d.innerHTML =
+      '<div class="elem-h"><span>' + titulo + '</span><button type="button" aria-label="Quitar">×</button></div>' +
+      (tipo === 'TORRE'
+        ? '<div class="row2">' + numHtml + '<select class="tipo">' + opciones(L.tiposTorre) + '</select></div>' +
+          '<select class="pos" style="margin-top:8px"><option value="">Posición…</option>' +
+          '<option' + (posicion === '#1' ? ' selected' : '') + '>#1</option><option' + (posicion === '#2' ? ' selected' : '') + '>#2</option></select>'
+        : numHtml) +
+      '<div class="info hidden"></div><div class="tipoBox hidden"></div><div class="orfBox"></div>';
+    var quitar = d.querySelector('.elem-h button');
+    if (cont && tipo !== 'TORRE') quitar.classList.add('hidden');   // en un tramo, cable y caja son obligatorios
+    quitar.onclick = function(){ d.remove(); };
+    d.querySelector('.num').addEventListener('change', function(){ verificar(d); });
+    (cont || $('elementos')).appendChild(d);
+    return d;
+  }
+
+  /* Instalar: tramos de cable + caja (+ torres). Otras acciones: lista libre. */
+  var modoElem = '';
+  function elementosBase(){
+    var inst = st.accion === 'INSTALAR';
+    modoElem = inst ? 'par' : 'libre';
+    $('elementos').innerHTML = '';
+    $('addLibre').classList.toggle('hidden', inst);
+    $('addTramo').classList.toggle('hidden', !inst);
+    $('hintElem').textContent = inst
+      ? 'Cada tramo es un cable con su caja. Si instala varios, quedan en filas seguidas, en el orden en que los escribe. El tipo sale del inventario: confírmelo o corríjalo.'
+      : 'Llene solo los que movió. El tipo de cable y de caja se toma del inventario: solo confírmelo o corríjalo.';
+    if (inst) { agregarTramo(); return; }
+    agregarElemento('CABLE'); agregarElemento('CAJA');
+    agregarElemento('TORRE', '#1'); agregarElemento('TORRE', '#2');
+  }
+  function agregarTramo(){
+    var t = document.createElement('div');
+    t.className = 'tramo';
+    t.innerHTML = '<div class="tramo-h"><span class="tt"></span><button type="button" class="lnk qt">Quitar tramo</button></div>';
+    $('elementos').appendChild(t);
+    agregarElemento('CABLE', null, t); agregarElemento('CAJA', null, t);
+    agregarElemento('TORRE', '#1', t); agregarElemento('TORRE', '#2', t);
+    t.querySelector('.qt').onclick = function(){ t.remove(); numerarTramos(); };
+    numerarTramos();
+    return t;
+  }
+  function numerarTramos(){
+    var ts = document.querySelectorAll('#elementos .tramo');
+    ts.forEach(function(t, i){
+      t.dataset.par = i;
+      t.querySelector('.tt').textContent = 'Tramo ' + (i + 1);
+      t.querySelector('.qt').classList.toggle('hidden', ts.length === 1);
+      t.querySelectorAll('.elem').forEach(function(e){ e.dataset.par = i; });
+    });
+    pintarCircuito();
+  }
+  $('btnTramo').onclick = function(){ agregarTramo().querySelector('.num').focus(); };
+  $('addLibre').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (b) agregarElemento(b.dataset.add).querySelector('.num').focus();
+  });
+
+  /* Verifica el número: formato, dónde está hoy y su tipo. Con señal consulta el servidor; sin señal usa lo último descargado. */
+  function verificar(d){
+    var info = d.querySelector('.info'), tb = d.querySelector('.tipoBox');
+    var inp = d.querySelector('.num');
+    inp.value = inp.value.trim().toUpperCase();
+    var num = inp.value;
+    d.dataset.id = ''; d.dataset.tipoEst = ''; d.dataset.tipoInv = '';
+    tb.className = 'tipoBox hidden'; tb.innerHTML = '';
+    pintarHuerfanos(d, null);
+    if (!num){ info.className = 'info hidden'; return; }
+    var ef = errFormato(d.dataset.elemento, num);
+    if (ef){ info.className = 'info warn'; info.textContent = ef; d.dataset.tipoEst = 'invalido'; return; }
+    if (navigator.onLine && gs()){
+      d.dataset.tipoEst = 'buscando';
+      info.className = 'info'; info.textContent = 'Buscando…';
+      gs().withSuccessHandler(function(r){
+        if (inp.value !== num) return;
+        if (!r || !r.ok){ info.className = 'info warn'; info.textContent = (r && r.error) || 'No se pudo consultar'; d.dataset.tipoEst = ''; return; }
+        mostrarCoincidencias(d, r.coincidencias || [], false);
+      }).withFailureHandler(function(){
+        if (inp.value === num) mostrarCoincidencias(d, buscarLocal(d.dataset.elemento, num), true);
+      }).consultar(ses.usuario, ses.pin, ses.mina, d.dataset.elemento, num);
+    } else {
+      mostrarCoincidencias(d, buscarLocal(d.dataset.elemento, num), true);
+    }
+  }
+  function buscarLocal(el, num){
+    if (!L.items || !L.items.length) return null;
+    var k = norm(num);
+    return L.items.filter(function(x){ return x[1] === el && x[2] === k; }).map(function(x){
+      var cables = (el === 'CAJA' && x[8] && x[7] === 'Instalado') ? L.items.filter(function(y){
+        return y[1] === 'CABLE' && y[8] === x[8] && y[5] === x[5] && y[7] === 'Instalado';
+      }).map(function(y){ return { id:y[0], numero:y[3] }; }) : [];
+      return { id:x[0], numero:x[3], tipo:x[4], ubicacion:x[5], equipo:x[6], estado:x[7], cables:cables };
+    });
+  }
+  function mostrarCoincidencias(d, c, local){
+    var info = d.querySelector('.info');
+    var conTipo = d.dataset.elemento !== 'TORRE';
+    if (c === null){   // sin señal y sin datos guardados
+      info.className = 'info'; info.textContent = 'Sin señal: no se pudo verificar. Se usará el tipo que tenga el inventario.';
+      d.dataset.tipoEst = ''; return;
+    }
+    var nota = local ? ' <span class="mut">(datos de la última conexión)</span>' : '';
+    var linea = function(x){ return esc(x.estado) + ' · ' + esc(x.ubicacion || 'sin ubicación') +
+      (x.equipo && x.equipo !== 'Acopio' ? ' / ' + esc(x.equipo) : ''); };
+    if (!c.length){
+      info.className = 'info warn'; info.innerHTML = 'No está en el inventario. Se creará como nuevo.' + nota;
+      if (conTipo) pedirTipo(d, '', 'nuevo'); else d.dataset.tipoEst = '';
+      return;
+    }
+    if (c.length === 1){
+      d.dataset.id = c[0].id;
+      info.className = 'info'; info.innerHTML = 'Hoy: ' + linea(c[0]) + nota;
+      pintarHuerfanos(d, c[0]);
+      if (conTipo) pedirTipo(d, c[0].tipo, 'existe');
+      else { var sel = d.querySelector('.tipo'); if (!sel.value && c[0].tipo) sel.value = c[0].tipo; d.dataset.tipoEst = ''; }
+      return;
+    }
+    info.className = 'info warn';
+    info.innerHTML = 'Este número está repetido. ¿Cuál movió?' + nota + c.map(function(x, i){
+      return '<label><input type="radio" name="r' + d.dataset.k + '" value="' + i + '">' + linea(x) + (x.tipo ? ' · ' + esc(x.tipo) : '') + '</label>';
+    }).join('');
+    d.dataset.tipoEst = conTipo ? 'elegir' : '';
+    info.querySelectorAll('input').forEach(function(rb){
+      rb.onchange = function(){
+        var x = c[+rb.value];
+        d.dataset.id = x.id;
+        pintarHuerfanos(d, x);
+        if (conTipo) pedirTipo(d, x.tipo, 'existe');
+      };
+    });
+  }
+
+  /* La caja que se va a instalar hoy está montada con otro cable: preguntar qué pasa con ese cable */
+  function pintarHuerfanos(d, x){
+    var box = d.querySelector('.orfBox');
+    d._orf = [];
+    if (!box) return;
+    box.innerHTML = '';
+    if (st.accion !== 'INSTALAR' || d.dataset.elemento !== 'CAJA' || !x || x.estado !== 'Instalado' || !x.cables || !x.cables.length) return;
+    d._orf = x.cables;
+    box.innerHTML = x.cables.map(function(c, i){
+      return '<div class="orf" data-i="' + i + '"><b>La caja ' + esc(x.numero) + ' hoy está con el cable ' + esc(c.numero) + '</b> en ' +
+        esc(x.ubicacion) + '. Si la instala aquí, ese cable queda sin caja.<br>¿Qué pasa con el cable ' + esc(c.numero) + '?' +
+        '<div class="bt"><button type="button" data-a="ACOPIO">Se retira a acopio</button>' +
+        '<button type="button" data-a="CIRCUITO">Se traslada a otro circuito</button></div>' +
+        '<div class="dest hidden"><input class="destino" autocomplete="off">' +
+        '<div class="seg est hidden"><button type="button" data-v="Disponible">Disponible</button>' +
+        '<button type="button" data-v="No disponible">No disponible</button></div></div></div>';
+    }).join('');
+    box.querySelectorAll('.orf').forEach(function(o){
+      var inp = o.querySelector('.destino');
+      o.querySelectorAll('.bt button').forEach(function(b){
+        b.onclick = function(){
+          o.dataset.a = b.dataset.a;
+          o.querySelectorAll('.bt button').forEach(function(y){ y.classList.toggle('sel', y === b); });
+          o.querySelector('.dest').classList.remove('hidden');
+          var aco = b.dataset.a === 'ACOPIO';
+          inp.setAttribute('list', aco ? 'dlAcopios' : 'dlCircuitos');
+          inp.placeholder = aco ? '¿A qué patio? Ej: PATIO CABLE PIT 2' : '¿A qué circuito? Ej: Circuito O';
+          o.querySelector('.est').classList.toggle('hidden', !aco);
+        };
+      });
+      o.querySelectorAll('.est button').forEach(function(b){
+        b.onclick = function(){ o.dataset.e = b.dataset.v;
+          o.querySelectorAll('.est button').forEach(function(y){ y.classList.toggle('sel', y === b); }); };
+      });
+      inp.addEventListener('change', function(){
+        if (o.dataset.a === 'CIRCUITO'){ var g = buscarGrupo(inp.value); if (g) inp.value = g.ubicacion; }
+      });
+    });
+  }
+  function leerHuerfanos(elems){
+    var rep = elems.filter(function(e){ return e.elemento === 'CABLE'; }).map(function(e){ return norm(e.numero); });
+    var out = [];
+    document.querySelectorAll('#elementos .elem[data-elemento=CAJA]').forEach(function(d){
+      (d._orf || []).forEach(function(c, i){
+        if (rep.indexOf(norm(c.numero)) >= 0) return;   // ese cable también se movió en este reporte
+        var o = d.querySelector('.orf[data-i="' + i + '"]');
+        out.push({ id: c.id, numero: c.numero, accion: (o && o.dataset.a) || '',
+          destino: o ? o.querySelector('.destino').value.trim() : '', estado: (o && o.dataset.e) || '' });
+      });
+    });
+    return out;
+  }
+
+  /* Pide confirmar el tipo que tiene el inventario, o elegirlo si no tiene / es nuevo */
+  function pedirTipo(d, tipoInv, modo){
+    var tb = d.querySelector('.tipoBox');
+    var el = d.dataset.elemento, nombre = NOM[el];
+    d.dataset.tipoInv = tipoInv || '';
+    var sel = '<select class="tipoSel">' + opciones(tiposDe(el), 'Elija el tipo…') + '</select>';
+    if (tipoInv){
+      d.dataset.tipoEst = 'pendiente';
+      tb.className = 'tipoBox pend';
+      tb.innerHTML = 'Tipo de ' + nombre + ' en el inventario: <b>' + esc(tipoInv) + '</b>. ¿Está de acuerdo?' +
+        '<div class="bt"><button type="button" class="si">Sí, es correcto</button><button type="button" class="no">No, corregir</button></div>';
+      tb.querySelector('.si').onclick = function(){
+        d.dataset.tipoEst = 'ok';
+        tb.className = 'tipoBox';
+        tb.innerHTML = '<span class="okt">✔ Tipo ' + esc(tipoInv) + ' confirmado</span> <button type="button" class="lnk">cambiar</button>';
+        tb.querySelector('.lnk').onclick = function(){ pedirTipo(d, tipoInv, modo); };
+      };
+      tb.querySelector('.no').onclick = function(){
+        d.dataset.tipoEst = 'corregir';
+        tb.className = 'tipoBox pend';
+        tb.innerHTML = 'Inventario dice <b>' + esc(tipoInv) + '</b>. Elija el tipo correcto:' + sel +
+          ' <button type="button" class="lnk">cancelar, sí es ' + esc(tipoInv) + '</button>';
+        var s = tb.querySelector('select');
+        Array.prototype.forEach.call(s.options, function(o){ if (o.value === tipoInv) o.disabled = true; });
+        tb.querySelector('.lnk').onclick = function(){ pedirTipo(d, tipoInv, modo); tb.querySelector('.si').click(); };
+      };
+    } else {
+      d.dataset.tipoEst = 'opcional';
+      tb.className = 'tipoBox';
+      tb.innerHTML = (modo === 'nuevo' ? 'Elemento nuevo: elija el tipo de ' + nombre : 'El inventario no tiene el tipo de esta ' + nombre + ': elíjalo') +
+        ' <span class="mut">(opcional)</span>' + sel;
+    }
+  }
+
+  /* Reglas de formato: vienen de la hoja APP_CONFIG */
+  function errFormato(el, n){
+    var R = L.reglas || {};
+    n = String(n || '').trim().toUpperCase();
+    if (R.permitirNN && n === 'NN' && (el === 'CABLE' || el === 'CAJA')) return '';
+    var letras = function(x){ return x.split('').join(' o '); };
+    if (el === 'CABLE'){
+      var rc = R.letrasCable ? new RegExp('^[' + R.letrasCable + ']?\\d+$') : /^\d+$/;
+      if (!rc.test(n)) return 'Número de cable inválido: "' + n + '". Solo números' +
+        (R.letrasCable ? ' (o ' + letras(R.letrasCable) + ' pegada antes del número)' : '') + ', sin espacios (ej: 571).';
+    }
+    if (el === 'CAJA'){
+      var ob = R.letraObligatoria && R.letrasCaja;
+      var rj = R.letrasCaja ? new RegExp('^\\d+[' + R.letrasCaja + ']' + (ob ? '' : '?') + '$') : /^\d+$/;
+      if (!rj.test(n)) return 'Número de caja inválido: "' + n + '". ' + (ob
+        ? 'Debe ser el número seguido de la letra ' + letras(R.letrasCaja) + ', pegada y sin espacios (ej: 309B).'
+        : 'Solo números' + (R.letrasCaja ? ' y, si lleva letra, ' + letras(R.letrasCaja) + ' pegada al número' : '') + ', sin espacios (ej: 309B).');
+    }
+    return '';
+  }
+
+  /* ---------- envío y cola offline ---------- */
+  function revisarElementos(){
+    var err = '';
+    document.querySelectorAll('#elementos .elem').forEach(function(d){
+      if (err) return;
+      var num = d.querySelector('.num').value.trim();
+      if (!num) return;
+      var n = NOM[d.dataset.elemento] + ' ' + num.toUpperCase(), e = d.dataset.tipoEst;
+      if (e === 'invalido') err = errFormato(d.dataset.elemento, num);
+      else if (e === 'buscando') err = 'Espere: se está verificando el ' + n + '.';
+      else if (e === 'elegir') err = 'El ' + n + ' está repetido: marque cuál movió.';
+      else if (e === 'pendiente') err = 'Confirme el tipo del ' + n + ': toque "Sí, es correcto" o "No, corregir".';
+      else if (e === 'corregir' && !d.querySelector('.tipoSel').value) err = 'Elija el tipo correcto del ' + n + '.';
+    });
+    return err;
+  }
+  function armar(){
+    var elems = [];
+    document.querySelectorAll('#elementos .elem').forEach(function(d){
+      var num = d.querySelector('.num').value.trim();
+      if (!num) return;
+      var pos = d.querySelector('.pos'), tipo = '';
+      if (d.dataset.elemento === 'TORRE') tipo = d.querySelector('.tipo').value;
+      else if (d.dataset.tipoEst === 'corregir' || d.dataset.tipoEst === 'opcional') tipo = (d.querySelector('.tipoSel') || {}).value || '';
+      elems.push({ elemento: d.dataset.elemento, numero: num.toUpperCase(), tipo: tipo,
+        posicion: pos ? pos.value : '', idMaestro: d.dataset.id || '',
+        par: d.dataset.par !== undefined ? parseInt(d.dataset.par, 10) : 0 });
+    });
+    var inst = st.accion === 'INSTALAR';
+    return {
+      huerfanos: inst ? leerHuerfanos(elems) : [],
+      idEnvio: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      fechaTrabajo: new Date().toLocaleString('es-CO'), fechaISO: new Date().toISOString(),
+      usuario: ses ? ses.usuario : '', pin: ses ? ses.pin : '', mina: ses ? ses.mina : '',
+      tecnico: ses ? ses.usuario : '', turno: st.turno,
+      accion: st.accion, ubicacion: $('ubicacion').value.trim(), equipo: $('equipo').value.trim(),
+      estado: st.estado, observaciones: $('obs').value.trim(), elementos: elems,
+      cajaRef: st.accion === 'INSTALAR' ? $('cajaRef').value.trim().toUpperCase() : '',
+      detalles: st.accion === 'INSTALAR' ? Array.prototype.filter.call($('detalles').children, function(b){
+        return b.classList.contains('sel'); }).map(function(b){ return b.dataset.v; }) : []
+    };
+  }
+  function validar(p){
+    if (!ses) return 'Ingrese con su usuario y PIN.';
+    if (!p.turno) return 'Seleccione el turno.';
+    if (!p.accion) return 'Seleccione qué hizo.';
+    if ((p.accion === 'INSTALAR' || p.accion === 'ACOPIO') && !p.ubicacion) return 'Falta la ubicación destino.';
+    if ((p.accion === 'ESTADO') && !p.estado) return 'Seleccione el estado.';
+    if (p.accion === 'BAJA' && !p.observaciones) return 'Escriba el motivo de la baja en observaciones.';
+    if (!p.elementos.length) return 'Escriba al menos un número de cable, caja o torre.';
+    for (var j = 0; j < p.elementos.length; j++){
+      var ef = errFormato(p.elementos[j].elemento, p.elementos[j].numero);
+      if (ef) return ef;
+    }
+    var re = revisarElementos();
+    if (re) return re;
+    if (p.accion === 'INSTALAR'){
+      var ts = document.querySelectorAll('#elementos .tramo');
+      for (var t = 0; t < ts.length; t++){
+        var v = function(el){ var x = ts[t].querySelector('.elem[data-elemento=' + el + '] .num'); return x ? x.value.trim() : ''; };
+        var tors = Array.prototype.some.call(ts[t].querySelectorAll('.elem[data-elemento=TORRE] .num'), function(x){ return x.value.trim(); });
+        var nom = ts.length > 1 ? 'Tramo ' + (t + 1) + ': ' : '';
+        if (!v('CABLE') && !v('CAJA') && !tors) { if (ts.length > 1) return nom + 'está vacío. Llénelo o toque "Quitar tramo".'; continue; }
+        if (!v('CABLE')) return nom + 'falta el número del cable. Cada tramo instalado lleva un cable y una caja.';
+        if (!v('CAJA')) return nom + 'falta el número de la caja. Cada tramo instalado lleva un cable y una caja.';
+      }
+      for (var h = 0; h < p.huerfanos.length; h++){
+        var hu = p.huerfanos[h];
+        if (!hu.accion) return 'Indique qué pasa con el cable ' + hu.numero + ', que queda sin caja.';
+        if (!hu.destino) return 'Escriba ' + (hu.accion === 'ACOPIO' ? 'a qué patio' : 'a qué circuito') + ' va el cable ' + hu.numero + '.';
+        if (hu.accion === 'ACOPIO' && !hu.estado) return 'Indique si el cable ' + hu.numero + ' queda disponible o no disponible.';
+      }
+    }
+    if (p.cajaRef && !/^\d+[A-Z]?$/.test(p.cajaRef)) return 'Caja de referencia inválida: "' + p.cajaRef + '". Escríbala pegada, sin espacios (ej: 229B).';
+    for (var i = 0; i < p.elementos.length; i++){
+      if (p.elementos[i].elemento === 'TORRE' && p.accion === 'INSTALAR' && !p.elementos[i].posicion)
+        return 'Indique la posición (#1 o #2) de la torre ' + p.elementos[i].numero + '.';
+    }
+    return '';
+  }
+  function resumenTxt(p){
+    return p.elementos.map(function(e){ return (e.elemento === 'CABLE' ? 'Cable ' : e.elemento === 'CAJA' ? 'Caja ' : 'Torre ') + e.numero; }).join(', ');
+  }
+
+  $('btnEnviar').onclick = function(){
+    var p = armar();
+    var err = validar(p);
+    if (err){ mostrar('err', esc(err)); return; }
+    var cola = ls(KEY_COLA) || [];
+    cola.push({ p: p, error: '' });
+    ls(KEY_COLA, cola);
+    guardarUsuario();
+    limpiar();
+    pintarCola();
+    if (navigator.onLine && gs()) mostrar('warn', 'Enviando: ' + esc(resumenTxt(p)) + '…');
+    else mostrar('warn', 'Sin señal. Quedó guardado y se envía solo cuando haya cobertura.');
+    procesarCola();
+  };
+
+  function procesarCola(){
+    if (enviando || !gs() || !ses) return;
+    var cola = ls(KEY_COLA) || [];
+    var idx = cola.findIndex(function(x){ return !x.error; });
+    if (idx < 0) return;
+    enviando = true;
+    var item = cola[idx];
+    gs().withSuccessHandler(function(r){
+      enviando = false;
+      var c = ls(KEY_COLA) || [];
+      var i = c.findIndex(function(x){ return x.p.idEnvio === item.p.idEnvio; });
+      if (r && r.ok){
+        if (i >= 0) c.splice(i, 1);
+        ls(KEY_COLA, c);
+        var html = '<b>Registrado:</b><ul>' + (r.mensajes || []).map(function(m){ return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>';
+        if (r.alertas && r.alertas.length) html += '<b>Revisar:</b><ul>' + r.alertas.map(function(m){ return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>';
+        mostrar(r.alertas && r.alertas.length ? 'warn' : 'ok', html);
+        cargarListas();   // la vista del circuito queda al día
+      } else {
+        if (i >= 0){ c[i].error = (r && r.error) || 'Error'; ls(KEY_COLA, c); }
+        mostrar('err', 'No se registró: ' + esc((r && r.error) || 'Error') + '. Corrija y vuelva a enviar.');
+      }
+      pintarCola();
+      procesarCola();
+    }).withFailureHandler(function(){
+      enviando = false;  // sin señal o servidor ocupado: se reintenta luego
+      pintarCola();
+    }).registrar(item.p);
+  }
+
+  function pintarCola(){
+    var cola = ls(KEY_COLA) || [];
+    $('cardCola').hidden = !cola.length;
+    $('cola').innerHTML = cola.map(function(x, i){
+      return '<div class="cola-item"><span>' + esc(x.p.fechaTrabajo) + ' · ' + esc(resumenTxt(x.p)) +
+        (x.error ? '<br><b style="color:var(--err)">' + esc(x.error) + '</b>' : '') +
+        '</span><button type="button" data-i="' + i + '">Borrar</button></div>';
+    }).join('');
+    $('cola').querySelectorAll('button').forEach(function(b){
+      b.onclick = function(){
+        if (!confirm('¿Borrar este reporte sin enviarlo?')) return;
+        var c = ls(KEY_COLA) || []; c.splice(+b.dataset.i, 1); ls(KEY_COLA, c); pintarCola();
+      };
+    });
+  }
+
+  function mostrar(tipo, html){
+    $('resultado').innerHTML = '<div class="msg ' + tipo + '">' + html + '</div>';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function limpiar(){
+    elementosBase();
+    $('obs').value = '';
+    $('cajaRef').value = '';
+    Array.prototype.forEach.call($('detalles').children, function(b){ b.classList.remove('sel'); });
+    refCambio();
+  }
+  function pintarDetalles(){
+    $('detalles').innerHTML = (L.detalles || []).map(function(d){
+      return '<button type="button" data-v="' + esc(d) + '">' + esc(d) + '</button>'; }).join('');
+  }
+  $('detalles').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (b) b.classList.toggle('sel');
+  });
+  function guardarUsuario(){
+    ls(KEY_USER, { turno: st.turno });
+  }
+
+  /* ---------- señal ---------- */
+  function pintarRed(){
+    var on = navigator.onLine;
+    $('net').textContent = on ? 'Con señal' : 'Sin señal';
+    $('net').className = 'net ' + (on ? 'on' : 'off');
+    if (on) procesarCola();
+  }
+  window.addEventListener('online', pintarRed);
+  window.addEventListener('offline', pintarRed);
+  setInterval(procesarCola, 20000);
+
+  /* ---------- listas ---------- */
+  function aplicarListas(x){
+    if (!x) return;
+    L = Object.assign(L, x);
+    L.reglas = Object.assign({letrasCaja:'AB',letrasCable:'',permitirNN:false,letraObligatoria:true}, x.reglas || L.reglas);
+    $('mina').textContent = L.mina || '';
+    var fill = function(id, arr){ $(id).innerHTML = (arr || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); };
+    fill('dlTecnicos', L.tecnicos); fill('dlCircuitos', L.circuitos);
+    fill('dlAcopios', L.acopios); fill('dlEquipos', L.equipos);
+    document.querySelectorAll('.elem[data-elemento=CABLE] .num').forEach(function(i){
+      if (L.reglas.letrasCable) i.removeAttribute('inputmode'); else i.setAttribute('inputmode', 'numeric');
+    });
+    pintarCircuito();
+  }
+  function cargarListas(){
+    if (!gs() || !ses) return;
+    gs().withSuccessHandler(function(x){
+      if (!x || !x.ok){ if (x && /PIN/.test(x.error)) salir(x.error); return; }
+      ls(KEY_LISTAS + '_' + ses.mina, x); aplicarListas(x);
+    }).withFailureHandler(function(){}).getListas(ses.usuario, ses.pin, ses.mina);
+  }
+
+  /* ---------- ingreso ---------- */
+  function mostrarSesion(){
+    var on = !!ses;
+    $('cardIngreso').classList.toggle('hidden', on);
+    $('cardQuien').classList.toggle('hidden', !on);
+    document.querySelectorAll('main > section.card').forEach(function(c){
+      if (c.id !== 'cardIngreso' && c.id !== 'cardQuien' && c.id !== 'cardCola') c.classList.toggle('hidden', !on);
+    });
+    $('btnEnviar').parentNode.classList.toggle('hidden', !on);
+    if (on){ $('lblUsuario').textContent = ses.usuario; $('lblMina').textContent = ses.nombreMina; $('mina').textContent = ses.nombreMina; }
+  }
+  function salir(msg){
+    ses = null; ls(KEY_SES, null); mostrarSesion();
+    if (msg) mostrar('err', esc(msg));
+  }
+  $('btnSalir').onclick = function(){
+    var c = ls(KEY_COLA) || [];
+    if (c.length && !confirm('Hay reportes sin enviar. Se enviarán cuando vuelva a ingresar. ¿Salir?')) return;
+    salir();
+  };
+  $('btnIngresar').onclick = function(){
+    var u = $('usuario').value.trim(), pin = $('pin').value.trim(), m = $('minaSel').value;
+    if (!m) { mostrar('err', 'Elija la mina.'); return; }
+    if (!u || !pin) { mostrar('err', 'Escriba su usuario y su PIN.'); return; }
+    if (!gs() || !navigator.onLine) { mostrar('err', 'Para ingresar la primera vez necesita señal.'); return; }
+    $('btnIngresar').disabled = true;
+    gs().withSuccessHandler(function(r){
+      $('btnIngresar').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      ses = { usuario: r.nombre, pin: pin, mina: m, nombreMina: $('minaSel').selectedOptions[0].textContent };
+      ls(KEY_SES, ses);
+      $('resultado').innerHTML = '';
+      mostrarSesion();
+      aplicarListas(ls(KEY_LISTAS + '_' + m));
+      cargarListas();
+      procesarCola();
+    }).withFailureHandler(function(e){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar. Intente de nuevo.'); })
+      .ingresar(u, pin);
+  };
+  function cargarInicio(){
+    if (!gs()) return;
+    gs().withSuccessHandler(function(x){
+      $('minaSel').innerHTML = '<option value="">Elija la mina…</option>' + x.minas.map(function(m){
+        return '<option value="' + esc(m.codigo) + '">' + esc(m.nombre) + '</option>'; }).join('');
+      $('dlUsuarios').innerHTML = x.usuarios.map(function(v){ return '<option value="' + esc(v) + '">'; }).join('');
+      if (x.url){ $('lnkTareas').href = x.url; $('lnkTareas').hidden = false; }
+    }).withFailureHandler(function(){}).getInicio();
+  }
+
+  /* ---------- inicio ---------- */
+  var u = ls(KEY_USER) || {};
+  if (u.turno){ st.turno = u.turno; marcar('turno', u.turno); }
+  ses = ls(KEY_SES);
+  mostrarSesion();
+  cargarInicio();
+  if (ses) aplicarListas(ls(KEY_LISTAS + '_' + ses.mina));
+  pintarDetalles();
+  elementosBase();
+  pintarAccion();
+  pintarCola();
+  pintarRed();
+  cargarListas();
+})();
+</script>
+</body>
+</html>

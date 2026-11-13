@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red eléctrica – consulta</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#e5e7eb; --zebra:#f9fafb;
+    --hd:#1f2937; --acc:#d97706; --band:#fef3c7; --bandtx:#78350f;
+    --inst:#1d4ed8; --instbg:#dbeafe; --disp:#15803d; --dispbg:#dcfce7;
+    --nod:#b91c1c; --nodbg:#fee2e2; --baja:#4b5563; --bajabg:#e5e7eb; --warnbg:#fef3c7; --warn:#92400e;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2b303a; --zebra:#1f232b;
+      --band:#3a2a0a; --bandtx:#fde68a;
+      --inst:#93c5fd; --instbg:#172554; --disp:#86efac; --dispbg:#052e16;
+      --nod:#fca5a5; --nodbg:#3b0d0d; --baja:#d1d5db; --bajabg:#374151; --warnbg:#2c220c; --warn:#fbbf24; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{background:var(--hd);color:#fff;padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  header h1{margin:0;font-size:18px;flex:1;min-width:200px}
+  header small{display:block;color:#d1d5db;font-weight:400;font-size:12px}
+  header button{background:var(--acc);color:#111;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
+  main{max-width:1280px;margin:0 auto;padding:16px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px}
+  .kpi h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+  .kpi .big{font-size:28px;font-weight:800;line-height:1}
+  .kpi .big span{font-size:13px;font-weight:500;color:var(--mut)}
+  .leg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--mut);margin-top:8px}
+  .leg b{color:var(--tx)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--ln);margin-bottom:12px;overflow-x:auto}
+  .tabs button{background:none;border:none;border-bottom:3px solid transparent;color:var(--mut);padding:10px 14px;font:600 14px system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+  .tabs button.sel{color:var(--tx);border-bottom-color:var(--acc)}
+  .tabs .n{background:var(--nodbg);color:var(--nod);border-radius:99px;padding:1px 7px;font-size:11px;margin-left:4px}
+  .barra{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:12px}
+  .barra4{grid-template-columns:2fr 1fr 1fr 1.4fr}
+  input,select{width:100%;font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:9px 10px}
+  /* tarjeta de circuito */
+  .circ{background:var(--card);border:1px solid var(--ln);border-radius:12px;margin-bottom:14px;overflow:hidden}
+  .circ-h{background:var(--band);color:var(--bandtx);padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
+  .circ-h h2{margin:0;font-size:17px}
+  .circ-h .meta{font-size:13px}
+  .conteo{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;border-bottom:1px solid var(--ln);font-size:12px}
+  .chip{border:1px solid var(--ln);border-radius:99px;padding:2px 9px;background:var(--bg)}
+  .chip b{margin-left:3px}
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--ln);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);background:var(--bg);white-space:nowrap}
+  tbody tr:nth-child(even) td{background:var(--zebra)}
+  td.n{font-weight:700;white-space:nowrap}
+  td.c{color:var(--mut);width:28px}
+  .sub{display:block;font-size:12px;color:var(--mut);font-weight:400}
+  .pill{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+  .Instalado{background:var(--instbg);color:var(--inst)}
+  .Disponible{background:var(--dispbg);color:var(--disp)}
+  .Nodisponible{background:var(--nodbg);color:var(--nod)}
+  .Debaja{background:var(--bajabg);color:var(--baja)}
+  .rep{background:var(--warnbg);color:var(--warn)}
+  .mut{color:var(--mut)}
+  .cnt{padding:10px 12px;color:var(--mut);font-size:12px}
+  .panel{background:var(--card);border:1px solid var(--ln);border-radius:12px;overflow:hidden}
+  .alerta{padding:10px 12px;border-bottom:1px solid var(--ln)}
+  .alerta b{color:var(--warn)}
+  .vacio{padding:24px;text-align:center;color:var(--mut)}
+  #pinBox{max-width:320px;margin:60px auto;text-align:center}
+  #pinBox input{margin:10px 0;text-align:center;font-size:18px}
+  #pinBox button{width:100%;padding:12px;border:none;border-radius:8px;background:var(--acc);font-weight:700}
+  @media (max-width:720px){
+    main{padding:10px}
+    .kpis{grid-template-columns:1fr}
+    .barra,.barra4{grid-template-columns:1fr 1fr}
+    .barra input,.barra4 input{grid-column:1/-1}
+    table.resp thead{display:none}
+    table.resp tr{display:block;padding:8px 12px;border-bottom:1px solid var(--ln)}
+    table.resp tbody tr:nth-child(even) td{background:none}
+    table.resp tbody tr:nth-child(even){background:var(--zebra)}
+    table.resp td{display:block;border:none;padding:1px 0}
+    table.resp td:empty{display:none}
+    table.resp td[data-l]:before{content:attr(data-l) ': ';color:var(--mut);font-size:12px;font-weight:400}
+    td.c{width:auto}
+    /* filas de circuito compactas: todo el tramo en 1-2 renglones */
+    table.tramos tbody tr{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline}
+    table.tramos td{display:inline-block}
+    table.tramos td.c{font-weight:700;color:var(--acc)}
+    table.tramos td.c:after{content:'.'}
+    table.tramos td.obs{flex-basis:100%}
+    table.tramos td .sub{display:inline;margin-left:4px}
+    .una table.tramos td[data-l="Pala"]{display:none}
+  }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>Seguimiento de cables, cajas y torres<small id="sub">Cargando…</small></h1>
+  <select id="selMina" style="width:auto;color:#111"></select>
+  <button type="button" id="btnAct">Actualizar</button>
+</header>
+
+<div id="pinBox" hidden>
+  <p>Escriba el PIN del tablero</p>
+  <input id="pin" inputmode="numeric">
+  <button type="button" id="btnPin">Entrar</button>
+</div>
+
+<main id="app" hidden>
+  <section class="kpis" id="kpis"></section>
+
+  <nav class="tabs" id="tabs">
+    <button type="button" data-t="cir" class="sel">Circuitos</button>
+    <button type="button" data-t="aco">Acopios</button>
+    <button type="button" data-t="bus">Buscar</button>
+    <button type="button" data-t="mov">Movimientos</button>
+    <button type="button" data-t="ale">Alertas<span class="n" id="nAle" hidden></span></button>
+  </nav>
+
+  <section id="t-cir">
+    <div class="barra">
+      <input id="qCir" placeholder="Buscar circuito, pala, cable, caja o torre…">
+      <select id="fCir"><option value="">Todos los circuitos</option></select>
+    </div>
+    <div id="lstCir"></div>
+  </section>
+
+  <section id="t-aco" hidden>
+    <div class="barra">
+      <input id="qAco" placeholder="Buscar número u observación…">
+      <select id="fAcoEst"><option value="">Todo estado</option><option>Disponible</option><option>No disponible</option></select>
+    </div>
+    <div id="lstAco"></div>
+  </section>
+
+  <section id="t-bus" hidden>
+    <div class="barra barra4">
+      <input id="q" placeholder="Número de cable, caja o torre…">
+      <select id="fElem"><option value="">Todos</option><option value="CABLE">Cables</option><option value="CAJA">Cajas</option><option value="TORRE">Torres</option></select>
+      <select id="fEst"><option value="">Todo estado</option><option>Instalado</option><option>Disponible</option><option>No disponible</option><option>De baja</option></select>
+      <select id="fUbi"><option value="">Toda ubicación</option></select>
+    </div>
+    <div class="panel"><table class="resp"><thead><tr>
+      <th>Elemento</th><th>Número</th><th>Tipo</th><th>Ubicación</th><th>Pala / equipo</th><th>Estado</th><th>Detalle</th><th>Actualizado</th>
+    </tr></thead><tbody id="tbInv"></tbody></table><div class="cnt" id="cntInv"></div></div>
+  </section>
+
+  <section id="t-mov" hidden>
+    <div class="panel"><table class="resp"><thead><tr>
+      <th>Fecha</th><th>Técnico</th><th>Elemento</th><th>Acción</th><th>Antes</th><th>Ahora</th><th>Obs.</th>
+    </tr></thead><tbody id="tbMov"></tbody></table><div class="cnt">Últimos 400 movimientos</div></div>
+  </section>
+
+  <section id="t-ale" hidden>
+    <div class="panel" id="pAle"></div>
+  </section>
+</main>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var D = null, pin = '';
+  var $ = function(id){ return document.getElementById(id); };
+  var NOM = {CAJA:'Caja', TORRE:'Torre', CABLE:'Cable'};
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function pill(e){ return e ? '<span class="pill ' + esc(e.replace(/\s/g,'')) + '">' + esc(e) + '</span>' : ''; }
+  function norm(s){ return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  var mina = '';
+  try{ pin = localStorage.getItem('red_pinTab') || ''; mina = localStorage.getItem('red_minaTab') || 'ED'; }catch(e){ mina = 'ED'; }
+
+  function cargar(){
+    $('sub').textContent = 'Cargando…';
+    google.script.run.withSuccessHandler(function(r){
+      if (!r.ok){
+        if (r.pinRequerido){ $('pinBox').hidden = false; $('app').hidden = true; $('sub').textContent = ''; return; }
+        $('sub').textContent = r.error || 'Error'; return;
+      }
+      D = r; $('pinBox').hidden = true; $('app').hidden = false;
+      $('selMina').innerHTML = r.minas.map(function(m){ return '<option value="' + esc(m.codigo) + '"' + (m.codigo === r.codigoMina ? ' selected' : '') + '>' + esc(m.nombre) + '</option>'; }).join('');
+      $('sub').textContent = r.mina + ' · actualizado ' + r.generado;
+      pintar();
+    }).withFailureHandler(function(e){ $('sub').textContent = 'Sin conexión: ' + (e && e.message ? e.message : ''); })
+      .getDatosTablero(pin, mina);
+  }
+  $('btnAct').onclick = cargar;
+  $('selMina').onchange = function(){ mina = this.value; try{ localStorage.setItem('red_minaTab', mina); }catch(e){} cargar(); };
+  $('btnPin').onclick = function(){
+    pin = $('pin').value.trim();
+    try{ localStorage.setItem('red_pinTab', pin); }catch(e){}
+    cargar();
+  };
+
+  function pintar(){ kpis(); selects(); circuitos(); acopios(); inv(); mov(); ale(); }
+
+  function kpis(){
+    $('kpis').innerHTML = ['CABLE','CAJA','TORRE'].map(function(el){
+      var it = D.items.filter(function(x){ return x.elemento === el && x.estado !== 'De baja'; });
+      var c = function(s){ return it.filter(function(x){ return x.estado === s; }).length; };
+      return '<div class="kpi"><h3>' + NOM[el] + 's</h3><div class="big">' + it.length + ' <span>en total</span></div>' +
+        '<div class="leg"><span>En circuito <b>' + c('Instalado') + '</b></span><span>Disponibles <b>' + c('Disponible') +
+        '</b></span><span>No disponibles <b>' + c('No disponible') + '</b></span></div></div>';
+    }).join('');
+  }
+
+  function selects(){
+    var vc = $('fCir').value, vu = $('fUbi').value;
+    $('fCir').innerHTML = '<option value="">Todos los circuitos</option>' + D.grupos.filter(function(g){ return !g.acopio; })
+      .map(function(g){ return '<option>' + esc(g.ubicacion) + '</option>'; }).join('');
+    $('fCir').value = vc;
+    var u = Array.from(new Set(D.items.map(function(x){ return x.ubicacion; }).filter(Boolean))).sort();
+    $('fUbi').innerHTML = '<option value="">Toda ubicación</option>' + u.map(function(x){ return '<option>' + esc(x) + '</option>'; }).join('');
+    $('fUbi').value = vu;
+  }
+
+  /* ---- números de un tramo ---- */
+  function nums(arr){
+    return arr.map(function(x){
+      return esc(x.numero) + (x.estado === 'No disponible' ? ' <span class="pill Nodisponible">No disp.</span>' : '');
+    }).join('<br>');
+  }
+  function tipos(arr){
+    var t = []; arr.forEach(function(x){ if (x.tipo && t.indexOf(x.tipo) < 0) t.push(x.tipo); });
+    return esc(t.join(' / '));
+  }
+  function textoTramo(t){
+    var all = t.cables.concat(t.cajas, t.t1, t.t2);
+    return all.map(function(x){ return norm(x.numero); }).join(' ') + ' ' + norm(t.equipo) + ' ' + t.obs.join(' ').toUpperCase();
+  }
+
+  function circuitos(){
+    var q = $('qCir').value.trim(), qn = norm(q), fc = $('fCir').value;
+    var html = D.grupos.filter(function(g){ return !g.acopio && (!fc || g.ubicacion === fc); }).map(function(g){
+      var cab = norm(g.ubicacion + ' ' + g.equipos.join(' ') + ' ' + g.subs.join(' '));
+      var tramos = g.tramos;
+      if (qn && cab.indexOf(qn) < 0){
+        tramos = tramos.filter(function(t){ return textoTramo(t).indexOf(qn) >= 0 || t.obs.join(' ').toUpperCase().indexOf(q.toUpperCase()) >= 0; });
+        if (!tramos.length) return '';
+      }
+      var conteo = D.tiposCable.concat(['Sin tipo']).filter(function(k){ return g.conteo[k]; })
+        .map(function(k){ return '<span class="chip">' + esc(k) + '<b>' + g.conteo[k] + '</b></span>'; }).join('');
+      var filas = tramos.map(function(t, i){
+        return '<tr><td class="c">' + (i + 1) + '</td>' +
+          '<td data-l="Pala">' + esc(t.equipo) + '</td>' +
+          '<td class="n" data-l="Cable">' + nums(t.cables) + '</td>' +
+          '<td data-l="Tipo cable">' + tipos(t.cables) + '</td>' +
+          '<td class="n" data-l="Caja">' + nums(t.cajas) + '</td>' +
+          '<td class="n" data-l="Torre #1">' + nums(t.t1) + (t.t1.length ? '<span class="sub">' + tipos(t.t1) + '</span>' : '') + '</td>' +
+          '<td class="n" data-l="Torre #2">' + nums(t.t2) + (t.t2.length ? '<span class="sub">' + tipos(t.t2) + '</span>' : '') + '</td>' +
+          '<td data-l="Detalles">' + esc(t.detalles) + '</td>' +
+          '<td class="mut obs" data-l="Obs.">' + esc(t.obs.join(' · ')) + '</td></tr>';
+      }).join('');
+      return '<article class="circ' + (g.equipos.length <= 1 ? ' una' : '') + '"><div class="circ-h"><h2>' + esc(g.ubicacion) + '</h2>' +
+        '<span class="meta">' + esc(g.equipos.join(' / ') || 'Sin pala asignada') + '</span>' +
+        (g.subs.length ? '<span class="meta">Sub: ' + esc(g.subs.join(' / ')) + '</span>' : '') +
+        '<span class="meta">Cables ' + g.cables + ' · Cajas ' + g.cajas + ' · Torres ' + g.torres + '</span></div>' +
+        (conteo ? '<div class="conteo"><span class="mut">Cables por tipo:</span>' + conteo + '</div>' : '') +
+        '<div class="tw"><table class="resp tramos"><thead><tr><th>#</th><th>Pala</th><th>Cable</th><th>Tipo cable</th><th>Caja</th>' +
+        '<th>Torre #1</th><th>Torre #2</th><th>Detalles</th><th>Observaciones</th></tr></thead><tbody>' + filas + '</tbody></table></div></article>';
+    }).join('');
+    $('lstCir').innerHTML = html || '<div class="panel vacio">Sin resultados</div>';
+  }
+
+  function acopios(){
+    var q = $('qAco').value.trim().toUpperCase(), qn = norm(q), fe = $('fAcoEst').value;
+    var html = D.grupos.filter(function(g){ return g.acopio; }).map(function(g){
+      var filas = [];
+      g.tramos.forEach(function(t){
+        [['Cable', t.cables], ['Caja', t.cajas], ['Torre', t.t1.concat(t.t2)]].forEach(function(par){
+          par[1].forEach(function(x){
+            if (fe && x.estado !== fe) return;
+            if (q && norm(x.numero).indexOf(qn) < 0 && t.obs.join(' ').toUpperCase().indexOf(q) < 0) return;
+            filas.push('<tr><td>' + par[0] + '</td><td class="n">' + esc(x.numero) +
+              '</td><td data-l="Tipo">' + esc(x.tipo || '') + '</td><td>' + pill(x.estado) +
+              '</td><td class="mut obs" data-l="Obs.">' + esc(t.obs.join(' · ')) + '</td></tr>');
+          });
+        });
+      });
+      if (!filas.length) return '';
+      var disp = 0, nod = 0;
+      g.tramos.forEach(function(t){ t.cables.concat(t.cajas, t.t1, t.t2).forEach(function(x){
+        if (x.estado === 'Disponible') disp++; else if (x.estado === 'No disponible') nod++; }); });
+      return '<article class="circ"><div class="circ-h"><h2>' + esc(g.ubicacion) + '</h2>' +
+        '<span class="meta">Cables ' + g.cables + ' · Cajas ' + g.cajas + ' · Torres ' + g.torres + '</span>' +
+        '<span class="meta">Disponibles ' + disp + ' · No disponibles ' + nod + '</span></div>' +
+        '<div class="tw"><table class="resp tramos"><thead><tr><th>Elemento</th><th>Número</th><th>Tipo</th><th>Estado</th><th>Observaciones</th></tr></thead><tbody>' +
+        filas.join('') + '</tbody></table></div></article>';
+    }).join('');
+    $('lstAco').innerHTML = html || '<div class="panel vacio">Sin resultados</div>';
+  }
+
+  function inv(){
+    var q = $('q').value.trim().toUpperCase(), fe = $('fElem').value, fs = $('fEst').value, fu = $('fUbi').value;
+    var qn = norm(q);
+    var it = D.items.filter(function(x){
+      if (fe && x.elemento !== fe) return false;
+      if (fs && x.estado !== fs) return false;
+      if (fu && x.ubicacion !== fu) return false;
+      if (q){
+        var t = (x.numero + ' ' + x.ubicacion + ' ' + x.equipo + ' ' + x.tipo + ' ' + x.obs).toUpperCase();
+        if (t.indexOf(q) < 0 && norm(x.numero).indexOf(qn) < 0) return false;
+      }
+      return true;
+    });
+    var max = 500;
+    $('tbInv').innerHTML = it.slice(0, max).map(function(x){
+      var det = [];
+      if (x.posicion) det.push('Pos. ' + esc(x.posicion));
+      if (x.caja) det.push('Caja ' + esc(x.caja));
+      if (x.rep) det.push('<span class="pill rep">Repetido</span>');
+      if (x.obs) det.push('<span class="mut">' + esc(x.obs) + '</span>');
+      return '<tr><td data-l="Elemento">' + NOM[x.elemento] + '</td><td class="n" data-l="Número">' + esc(x.numero) +
+        '</td><td data-l="Tipo">' + esc(x.tipo || '—') + '</td><td data-l="Ubicación">' + esc(x.ubicacion || '—') +
+        '</td><td data-l="Pala">' + esc(x.equipo || '—') + '</td><td>' + pill(x.estado) +
+        '</td><td>' + det.join(' · ') + '</td><td data-l="Actualizado" class="mut">' + esc(x.act) + (x.tec ? '<br>' + esc(x.tec) : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="8" class="vacio">Sin resultados</td></tr>';
+    $('cntInv').textContent = it.length + ' registros' + (it.length > max ? ' (mostrando ' + max + ', afine la búsqueda)' : '');
+  }
+
+  function mov(){
+    $('tbMov').innerHTML = D.movs.map(function(m){
+      return '<tr><td class="mut" data-l="Fecha">' + esc(m.fecha) + '</td><td data-l="Técnico">' + esc(m.tecnico) + (m.turno ? ' <span class="mut">(' + esc(m.turno) + ')</span>' : '') +
+        '</td><td class="n" data-l="Elemento">' + esc(NOM[m.elemento] || m.elemento) + ' ' + esc(m.numero) +
+        '</td><td data-l="Acción">' + esc(m.accion) + '</td><td data-l="Antes">' + (m.eAntes ? pill(m.eAntes) + ' ' : '') + esc(m.uAntes || '—') +
+        '</td><td data-l="Ahora">' + pill(m.eNuevo) + ' ' + esc(m.uNueva) + (m.equipo && m.equipo !== 'Acopio' ? ' / ' + esc(m.equipo) : '') +
+        (m.alerta ? '<br><span class="pill rep">' + esc(m.alerta) + '</span>' : '') +
+        '</td><td class="mut" data-l="Obs.">' + esc(m.obs) + '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="vacio">Aún no hay movimientos reportados</td></tr>';
+  }
+
+  function ale(){
+    var grupos = {};
+    D.items.filter(function(x){ return x.rep; }).forEach(function(x){
+      var k = x.elemento + ' ' + norm(x.numero); (grupos[k] = grupos[k] || []).push(x); });
+    var movA = D.movs.filter(function(m){ return m.alerta; });
+    var html = '';
+    if (movA.length){
+      html += '<div class="alerta"><b>Reportes que hay que revisar</b></div>' + movA.map(function(m){
+        return '<div class="alerta">' + esc(m.fecha) + ' · ' + esc(m.tecnico) + ' · <b>' + esc(NOM[m.elemento] || '') + ' ' + esc(m.numero) + '</b>: ' + esc(m.alerta) + '</div>';
+      }).join('');
+    }
+    var ks = Object.keys(grupos);
+    if (ks.length){
+      html += '<div class="alerta"><b>Números repetidos en inventario (' + ks.length + ')</b></div>' + ks.map(function(k){
+        return '<div class="alerta"><b>' + esc(NOM[grupos[k][0].elemento]) + ' ' + esc(grupos[k][0].numero) + '</b>: ' +
+          grupos[k].map(function(x){ return esc(x.ubicacion) + (x.equipo && x.equipo !== 'Acopio' ? ' / ' + esc(x.equipo) : ''); }).join(' · ') + '</div>';
+      }).join('');
+    }
+    $('pAle').innerHTML = html || '<div class="vacio">Sin alertas</div>';
+    var n = movA.length + ks.length;
+    $('nAle').hidden = !n; $('nAle').textContent = n;
+  }
+
+  ['qCir','fCir'].forEach(function(id){ $(id).addEventListener('input', circuitos); });
+  ['qAco','fAcoEst'].forEach(function(id){ $(id).addEventListener('input', acopios); });
+  ['q','fElem','fEst','fUbi'].forEach(function(id){ $(id).addEventListener('input', inv); });
+
+  $('tabs').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    Array.prototype.forEach.call($('tabs').children, function(x){ x.classList.toggle('sel', x === b); });
+    ['cir','aco','bus','mov','ale'].forEach(function(t){ $('t-' + t).hidden = t !== b.dataset.t; });
+  });
+
+  cargar();
+  setInterval(cargar, 180000);
+})();
+</script>
+</body>
+</html>
