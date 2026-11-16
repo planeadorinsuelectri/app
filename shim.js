@@ -36,7 +36,7 @@
   window.google = { script: {} };
   Object.defineProperty(window.google.script, 'run', { get: runner });
   /* menú común de la app */
-  var PAGINAS = [['index.html', 'Tareas'], ['cajas.html', 'Cajas/torres'], ['inventario.html', 'Inventario'], ['consulta.html', 'Consulta'], ['revision.html', 'Revisión'], ['formato.html', 'Formato diario']];
+  var PAGINAS = [['index.html', 'Tareas'], ['cajas.html', 'Cajas/torres'], ['inventario.html', 'Inventario'], ['consulta.html', 'Consulta'], ['revision.html', 'Revisión'], ['formato.html', 'Formato diario'], ['pm.html', 'PM palas']];
   var SOLO_SENAL = { 'consulta.html': 1, 'revision.html': 1, 'formato.html': 1 };
   document.addEventListener('DOMContentLoaded', function(){
     var aqui = location.pathname.split('/').pop() || 'index.html';
