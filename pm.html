@@ -96,6 +96,11 @@
     <div class="add"><button type="button" id="btnIngresar">Ingresar</button></div>
   </section>
 
+  <section class="card hidden" id="cardPend">
+    <h2>Pendientes de revisión</h2>
+    <div id="pend"></div>
+  </section>
+
   <section class="card hidden" id="cardEquipo">
     <h2>Equipo</h2>
     <p class="mut" style="margin:0">Reporta: <b id="lblUsuario"></b> <button type="button" class="lnk" id="btnSalir">salir</button></p>
@@ -254,6 +259,7 @@
   $('historial').addEventListener('click', function(ev){
     var v = ev.target.closest('[data-ver]'); if (v){ verPM(v.dataset.ver); return; }
     var b = ev.target.closest('[data-pm]'); if (!b) return;
+    st.corrige = ''; $('btnEnviar').textContent = 'Enviar PM';
     if (!st.mina){ mostrar('err', 'Elija la mina del equipo.'); return; }
     st.idPm = b.dataset.pm || 'PM-' + uid();
     var p = ((st.eq && st.eq.pms) || []).find(function(x){ return x.id === b.dataset.pm; });
@@ -271,7 +277,8 @@
       if (!r || !r.ok){ $('verTit').textContent = (r && r.error) || 'Error'; return; }
       var p0 = r.partes[0];
       $('verTit').textContent = p0.EQUIPO + ' · PM ' + fTxt(p0.FECHA) + (p0.REVISION === 'EXCEL' ? ' · del Excel' : '');
-      $('verCuerpo').innerHTML = r.partes.map(function(p){ return parteHtml(p, r); }).join('');
+      st.det = r;
+      $('verCuerpo').innerHTML = r.partes.map(function(p, i){ return parteHtml(p, r) + botonesParte(p, i); }).join('') + botonesPM(r);
     }).withFailureHandler(function(){ $('verTit').textContent = 'No se pudo cargar. Revise la señal.'; }).getDetallePM(ses.usuario, ses.pin, id);
   }
   $('btnCerrarVer').onclick = function(){ $('cardVer').classList.add('hidden'); };
@@ -304,6 +311,61 @@
     h += '<p class="mut">' + (p.REVISION === 'EXCEL' ? 'Leído del Excel (solo consulta).' : 'Reportó ' + esc(p.REPORTADO_POR) + ' · ' + esc(p.FECHA_REGISTRO)) + '</p>';
     return h;
   }
+
+  /* ---------- revisión del supervisor ---------- */
+  function botonesParte(p, i){
+    if (!st.revisa || p.REVISION === 'EXCEL') return '';
+    return '<div class="add"><button type="button" class="btn" data-corr-parte="' + i + '">Corregir: ' + esc(I.partes[p.PARTE] || '') + '</button></div>';
+  }
+  function botonesPM(r){
+    var app = r.partes.filter(function(p){ return p.REVISION !== 'EXCEL'; });
+    if (!app.length) return '';
+    var pdf = app.map(function(p){ return p.PDF; }).filter(Boolean)[0], h = '';
+    var pend = app.some(function(p){ return p.REVISION !== 'REVISADO'; });
+    if (!pend) h += '<p class="mut">Revisado por ' + esc(app[0].REVISADO_POR) + ' · ' + esc(app[0].FECHA_REVISION) + '</p>';
+    if (pdf) h += '<div class="add"><a class="btn" style="text-align:center;text-decoration:none;line-height:30px" href="' + esc(pdf) + '" target="_blank">Ver PDF</a></div>';
+    if (st.revisa && pend) h += '<div class="add"><button type="button" class="btn pri" id="btnAprobar">Aprobar y generar PDF</button></div>';
+    else if (st.revisa) h += '<div class="add"><button type="button" class="btn" id="btnAprobar">Volver a generar el PDF</button></div>';
+    return h;
+  }
+  $('verCuerpo').addEventListener('click', function(ev){
+    var c = ev.target.closest('[data-corr-parte]');
+    if (c){ corregirParte(st.det.partes[+c.dataset.corrParte]); return; }
+    var a = ev.target.closest('#btnAprobar'); if (!a) return;
+    if (!navigator.onLine){ mostrar('err', 'Para aprobar necesita señal.'); return; }
+    a.disabled = true; a.textContent = 'Generando PDF…';
+    gs().withSuccessHandler(function(r){
+      if (!r || !r.ok){ a.disabled = false; a.textContent = 'Aprobar y generar PDF'; mostrar('err', esc((r && r.error) || 'Error')); return; }
+      mostrar('ok', esc(r.mensajes.join(' ')) + ' <a href="' + esc(r.pdf) + '" target="_blank">Abrir PDF</a>');
+      verPM(st.det.id); cargarPendientes();
+    }).withFailureHandler(function(e){ a.disabled = false; a.textContent = 'Aprobar y generar PDF'; mostrar('err', 'No se pudo aprobar: ' + esc(e && e.message)); })
+      .aprobarPM(ses.usuario, ses.pin, st.det.id);
+  });
+  function corregirParte(p){
+    var tec = String(p.TECNICOS || '').split(/\s*,\s*/).filter(Boolean);
+    var eq = (I.equipos || []).find(function(x){ return x.equipo === p.EQUIPO; });
+    cargarEnFormulario({ equipo: p.EQUIPO, mina: eq ? eq.mina : p.MINA, idPm: p.ID_PM, parte: p.PARTE, fecha: p.FECHA, hIni: p.HORA_INICIO, hFin: p.HORA_FIN,
+      grupo: p.GRUPO, supervisor: p.SUPERVISOR, obs: p.OBSERVACIONES, tecnicos: tec, circuito: p.CIRCUITO, subestacion: p.SUBESTACION, feeder: p.FEEDER,
+      datos: p.DATOS || {}, fotos: [] });
+    st.corrige = p.ID_ENVIO;
+    $('lblPm').textContent = p.EQUIPO + ' · corrigiendo ' + (I.partes[p.PARTE] || '').toLowerCase() + ' del ' + fTxt(p.FECHA) + ' (reportó ' + p.REPORTADO_POR + ')';
+    $('btnEnviar').textContent = 'Guardar corrección';
+    $('cardVer').classList.add('hidden');
+    $('cardParte').scrollIntoView({ behavior: 'smooth' });
+  }
+  function cargarPendientes(){
+    if (!gs() || !ses || !navigator.onLine) return;
+    gs().withSuccessHandler(function(r){
+      st.revisa = !!(r && r.ok);
+      $('cardPend').classList.toggle('hidden', !st.revisa);
+      if (!st.revisa) return;
+      $('pend').innerHTML = r.pms.length ? r.pms.map(function(p){
+        return '<div class="fila"><span><b>' + esc(p.equipo) + '</b> · ' + esc(fTxt(p.fecha)) + '<br>' + p.partes.map(function(x){ return '<span class="pill">' + esc(I.partes[x.parte]) + ' · ' + esc(x.reporto) + '</span>'; }).join(' ') +
+          '</span><button type="button" class="btn" style="flex:0 0 auto" data-ver="' + esc(p.id) + '">Revisar</button></div>';
+      }).join('') : '<p class="mut">No hay PM pendientes.</p>';
+    }).withFailureHandler(function(){}).getPendientesPM(ses.usuario, ses.pin);
+  }
+  $('pend').addEventListener('click', function(ev){ var v = ev.target.closest('[data-ver]'); if (v) verPM(v.dataset.ver); });
 
   /* ---------- parte ---------- */
   $('parte').addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (b) elegirParte(b.dataset.v); });
@@ -380,12 +442,15 @@
     return out;
   }
   function armarCajas(previas){
-    var ant = previas || leerCajas(), vistas = {}, lista = [];
+    var ant = previas || leerCajas(), vistas = {}, lista = [], extra = {};
     leerTramos().forEach(function(t){ [t.de, t.a].forEach(function(n){ n = (n || '').toUpperCase(); if (n && !NO_CAJA.test(n) && !vistas[n]){ vistas[n] = 1; lista.push(n); } }); });
+    /* cajas ya registradas que no salen del recorrido (p. ej. PM sin caja desde/hasta): se conservan */
+    var fijas = previas ? Object.keys(previas) : Array.prototype.map.call(document.querySelectorAll('#cajas [data-extra]'), function(d){ return d.dataset.caja; });
+    fijas.forEach(function(n){ if (!vistas[n]){ vistas[n] = 1; extra[n] = 1; lista.push(n); } });
     $('bxTodoCaja').classList.toggle('hidden', !lista.length);
     $('cajas').innerHTML = lista.map(function(n){
       var c = ant[n] || { items: {}, reparada: 'NO', reemplazada: 'NO', obs: '' };
-      return '<div class="bloque" data-caja="' + esc(n) + '"><div class="tit"><span>Caja ' + esc(n) + '</span><button type="button" class="lnk" data-todo>todo OK</button></div>' +
+      return '<div class="bloque" data-caja="' + esc(n) + '"' + (extra[n] ? ' data-extra="1"' : '') + '><div class="tit"><span>Caja ' + esc(n) + '</span><button type="button" class="lnk" data-todo>todo OK</button></div>' +
         I.itemsCaja.map(function(k){ return '<div class="item"><b>' + esc(k.charAt(0) + k.slice(1).toLowerCase()) + '</b>' + segHtml(k, I.estados, c.items[k]) + '</div>'; }).join('') +
         '<div class="row2"><div><label>¿Fue reparada?</label>' + segHtml('reparada', ['SI', 'NO'], c.reparada, ['SÍ', 'NO']) + '</div>' +
         '<div><label>¿Fue reemplazada?</label>' + segHtml('reemplazada', ['SI', 'NO'], c.reemplazada, ['SÍ', 'NO']) + '</div></div>' +
@@ -527,6 +592,17 @@
   $('btnEnviar').onclick = function(){
     var p = armar(true), e = validar(p);
     if (e){ mostrar('err', esc(e)); return; }
+    if (st.corrige){
+      if (!navigator.onLine){ mostrar('err', 'Para guardar la corrección necesita señal.'); return; }
+      p.idEnvioOriginal = st.corrige; var b = $('btnEnviar'); b.disabled = true;
+      gs().withSuccessHandler(function(r){
+        b.disabled = false;
+        if (!r || !r.ok){ mostrar('err', esc((r && r.error) || 'Error')); return; }
+        var id = p.idPm; st.corrige = ''; b.textContent = 'Enviar PM'; limpiar();
+        mostrar('ok', esc(r.mensajes.join(' '))); verPM(id); cargarPendientes();
+      }).withFailureHandler(function(err){ b.disabled = false; mostrar('err', 'No se pudo guardar: ' + esc(err && err.message)); }).corregirPM(p);
+      return;
+    }
     var c = ls(K_COLA) || []; c.push({ p: p, error: '' });
     if (!ls(K_COLA, c)){ mostrar('err', 'El celular no tiene espacio para guardar las fotos sin señal. Quite algunas fotos o envíe con señal.'); return; }
     var tu = ls(K_TURNO + '_' + ses.usuario) || {};
@@ -589,7 +665,7 @@
 
   /* ---------- borrador (por si se cierra la app a mitad del PM) ---------- */
   var tBorr = null;
-  function guardarBorrador(){ clearTimeout(tBorr); tBorr = setTimeout(function(){ if (ses && st.equipo && st.idPm && st.parte) ls(K_BORR, armar(false)); }, 600); }
+  function guardarBorrador(){ clearTimeout(tBorr); tBorr = setTimeout(function(){ if (ses && st.equipo && st.idPm && st.parte && !st.corrige) ls(K_BORR, armar(false)); }, 600); }
   document.addEventListener('input', function(ev){ if (ev.target.closest('main') && ev.target.id !== 'usuario' && ev.target.id !== 'pin') guardarBorrador(); });
   function cargarEnFormulario(p){
     $('equipo').value = p.equipo; st.equipo = p.equipo; st.mina = p.mina; st.idPm = p.idPm; st.eq = ls(K_EQ + p.equipo);
@@ -626,6 +702,7 @@
     var on = !!ses;
     $('cardIngreso').classList.toggle('hidden', on);
     $('cardEquipo').classList.toggle('hidden', !on);
+    if (!on){ st.revisa = false; $('cardPend').classList.add('hidden'); }
     if (!on){ st.idPm = ''; pintarFormulario(); $('sub').textContent = 'Ingrese con su usuario'; return; }
     $('lblUsuario').textContent = ses.usuario; $('sub').textContent = ses.usuario;
     aplicarListas(ls(K_LISTAS + ses.area));
@@ -645,7 +722,7 @@
     gs().withSuccessHandler(function(r){
       if (!r.ok){ mostrar('err', esc(r.error)); return; }
       ses = { usuario: r.nombre, pin: pin, area: a }; ls(K_SES, ses); $('resultado').innerHTML = '';
-      mostrarSesion(); cargarListas(); procesarCola();
+      mostrarSesion(); cargarListas(); procesarCola(); cargarPendientes();
     }).withFailureHandler(function(){ mostrar('err', 'No se pudo conectar.'); }).ingresar(u, pin);
   };
   function aplicarInicio(x){
@@ -658,7 +735,7 @@
   aplicarInicio(ls(K_INI));
   if (!I) mostrarSesion();
   if (gs()) gs().withSuccessHandler(function(x){ ls(K_INI, x); aplicarInicio(x); }).withFailureHandler(function(){ if (!I) mostrar('err', 'Abra esta página una vez con señal para que quede guardada.'); }).getInicioPM();
-  pintarCola(); pintarRed(); cargarListas();
+  pintarCola(); pintarRed(); cargarListas(); cargarPendientes();
 })();
 </script>
 </body>
