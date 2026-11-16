@@ -308,7 +308,7 @@
     }
     h += kv('Observaciones', p.OBSERVACIONES);
     if ((p.FOTOS || []).length) h += '<div class="vfot">' + p.FOTOS.map(function(f){ return '<a href="' + esc(f.ver) + '" target="_blank"><img src="' + esc(f.url) + '" alt="' + esc(f.nota) + '"></a>'; }).join('') + '</div>';
-    h += '<p class="mut">' + (p.REVISION === 'EXCEL' ? 'Leído del Excel (solo consulta).' : 'Reportó ' + esc(p.REPORTADO_POR) + ' · ' + esc(p.FECHA_REGISTRO)) + '</p>';
+    h += '<p class="mut">' + (p.REVISION === 'EXCEL' ? 'Leído del Excel (solo consulta, se puede descargar en PDF).' : 'Reportó ' + esc(p.REPORTADO_POR) + ' · ' + esc(p.FECHA_REGISTRO)) + '</p>';
     return h;
   }
 
@@ -319,15 +319,17 @@
   }
   function botonesPM(r){
     var app = r.partes.filter(function(p){ return p.REVISION !== 'EXCEL'; });
-    if (!app.length) return '';
+    var bajar = '<div class="add"><button type="button" class="btn pri" id="btnBajar">Descargar PDF</button></div>';
+    if (!app.length) return bajar;
     var pdf = app.map(function(p){ return p.PDF; }).filter(Boolean)[0], h = '';
-    if (pdf) h += '<div class="add"><a class="btn" style="text-align:center;text-decoration:none;line-height:30px" href="' + esc(pdf) + '" target="_blank">Ver PDF</a></div>';
+    if (pdf) h += bajar;
     h += '<div class="add"><button type="button" class="btn' + (pdf ? '' : ' pri') + '" id="btnAprobar">' + (pdf ? 'Volver a generar el PDF' : 'Generar PDF') + '</button></div>';
     return h;
   }
   $('verCuerpo').addEventListener('click', function(ev){
     var c = ev.target.closest('[data-corr-parte]');
     if (c){ corregirParte(st.det.partes[+c.dataset.corrParte]); return; }
+    var d = ev.target.closest('#btnBajar'); if (d){ descargarPdf(d); return; }
     var a = ev.target.closest('#btnAprobar'); if (!a) return;
     if (!navigator.onLine){ mostrar('err', 'Para generar el PDF necesita señal.'); return; }
     a.disabled = true; a.textContent = 'Generando PDF…';
@@ -338,6 +340,22 @@
     }).withFailureHandler(function(e){ a.disabled = false; a.textContent = 'Generar PDF'; mostrar('err', 'No se pudo generar el PDF: ' + esc(e && e.message)); })
       .aprobarPM(ses.usuario, ses.pin, st.det.id);
   });
+  function descargarPdf(d){
+    if (!navigator.onLine){ mostrar('err', 'Para descargar el PDF necesita señal.'); return; }
+    d.disabled = true; d.textContent = 'Preparando PDF…';
+    var fin = function(){ d.disabled = false; d.textContent = 'Descargar PDF'; };
+    gs().withSuccessHandler(function(r){
+      fin();
+      if (!r || !r.ok){ mostrar('err', esc((r && r.error) || 'Error')); return; }
+      var bin = atob(r.b64), u8 = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([u8], { type: 'application/pdf' }));
+      var a = document.createElement('a'); a.href = url; a.download = r.nombre; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+      mostrar('ok', 'PDF descargado: ' + esc(r.nombre));
+    }).withFailureHandler(function(e){ fin(); mostrar('err', 'No se pudo descargar: ' + esc(e && e.message)); })
+      .descargarPdfPM(ses.usuario, ses.pin, st.det.id);
+  }
   function corregirParte(p){
     var tec = String(p.TECNICOS || '').split(/\s*,\s*/).filter(Boolean);
     var eq = (I.equipos || []).find(function(x){ return x.equipo === p.EQUIPO; });
