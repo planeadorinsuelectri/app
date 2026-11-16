@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formato diario</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#d1d5db; --zebra:#f9fafb;
+    --acc:#d97706; --ok:#15803d; --okbg:#dcfce7; --err:#b91c1c; --errbg:#fee2e2; --warn:#9a3412; --warnbg:#ffedd5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2f343e; --zebra:#1f232b;
+      --acc:#f59e0b; --ok:#4ade80; --okbg:#0f2a19; --err:#f87171; --errbg:#2c1212; --warn:#fdba74; --warnbg:#2c1a0c; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{background:#1f2937;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  header h1{margin:0;font-size:18px;flex:1;min-width:200px}
+  header small{display:block;color:#d1d5db;font-weight:400;font-size:12px}
+  main{padding:12px 16px 90px}
+  .card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+  h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:3px}
+  input,select,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:7px 9px;min-height:36px;width:100%}
+  textarea{min-height:56px;resize:vertical}
+  .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end}
+  button{font:600 14px system-ui,sans-serif;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--ln);background:var(--card);color:var(--tx)}
+  button.pri{background:var(--acc);border-color:var(--acc);color:#111}
+  button.mini{padding:4px 9px;font-size:12px}
+  #login{max-width:360px;margin:40px auto}
+  #login input{margin-bottom:10px}
+  .msg{border-radius:10px;padding:10px 12px;margin-bottom:12px}
+  .msg.ok{background:var(--okbg);color:var(--ok)} .msg.err{background:var(--errbg);color:var(--err)} .msg.warn{background:var(--warnbg);color:var(--warn)}
+  .msg a{color:inherit;font-weight:700}
+  .tw{overflow:auto;border:1px solid var(--ln);border-radius:10px}
+  table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
+  th,td{padding:5px 6px;border-bottom:1px solid var(--ln);vertical-align:top;text-align:left}
+  th{background:var(--bg);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);white-space:nowrap}
+  td input{min-height:32px;padding:4px 6px}
+  td textarea{min-height:44px;padding:4px 6px}
+  .w1{width:52px}.w2{width:92px}.w3{width:130px}.w4{width:190px}.w5{width:260px}
+  tr.al td{background:var(--warnbg)}
+  tr.rojo td{background:var(--errbg)}
+  .alerta{font-size:11px;color:var(--err);font-weight:600;white-space:nowrap}
+  .barra{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--ln);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}
+  .barra span{margin-right:auto;color:var(--mut)}
+  .hidden{display:none!important}
+  .mut{color:var(--mut)}
+  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:10px}
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>Formato de actividades diarias<small id="sub">Ingrese con su usuario</small></h1>
+  <button type="button" id="btnSalir" class="hidden">Salir</button>
+</header>
+<main>
+  <div id="resultado"></div>
+
+  <section class="card" id="login">
+    <label for="usuario">Usuario</label>
+    <input id="usuario" list="dlUsuarios" autocomplete="off">
+    <datalist id="dlUsuarios"></datalist>
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <button type="button" class="pri" id="btnIngresar" style="width:100%">Ingresar</button>
+  </section>
+
+  <div id="app" class="hidden">
+    <section class="card">
+      <div class="filtros">
+        <div><label for="fFecha">Fecha del turno</label><input type="date" id="fFecha"></div>
+        <div><label for="fArea">Mina</label><select id="fArea">
+          <option value="PIT 2">EL DESCANSO PIT 2</option><option value="PIT 5">EL DESCANSO PIT 5</option><option value="PBNW">PRIBBENOW</option>
+        </select></div>
+        <div><label for="fGrupo">Grupo</label><select id="fGrupo"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+        <div><label for="fTurno">Turno</label><select id="fTurno"><option>DIURNO</option><option>NOCTURNO</option></select></div>
+        <div><button type="button" class="pri" id="btnGenerar" style="width:100%">Generar formato</button></div>
+      </div>
+    </section>
+
+    <div id="formato" class="hidden">
+      <section class="card">
+        <h2>Cuadrillas</h2>
+        <div class="tw"><table>
+          <thead><tr><th>#</th><th>Técnico 1</th><th>Técnico 2</th><th>Camioneta</th><th>Operador</th><th>Enrollacable</th></tr></thead>
+          <tbody id="tbCuad"></tbody>
+        </table></div>
+      </section>
+
+      <section class="card">
+        <h2>Actividades</h2>
+        <div class="tw"><table>
+          <thead><tr><th>Cuad.</th><th>Inicio</th><th>Fin</th><th>Descripción</th><th>Equipo</th><th>W.O #</th><th>Tiempo</th>
+            <th>Producción</th><th>Clima</th><th>Desplaz.</th><th>Espera</th><th>Observaciones</th><th></th></tr></thead>
+          <tbody id="tbAct"></tbody>
+        </table></div>
+        <p><button type="button" class="mini" id="btnAddAct">+ Agregar actividad</button> <span class="mut" id="cntAct"></span></p>
+      </section>
+
+      <section class="card">
+        <h2>Novedades enrollacables</h2>
+        <div class="tw"><table>
+          <thead><tr><th>Equipo</th><th>Estado</th><th>Niveles</th><th>Ubicación</th><th>Observaciones</th><th></th></tr></thead>
+          <tbody id="tbEnr"></tbody>
+        </table></div>
+        <p><button type="button" class="mini" data-add="enrollacables">+ Agregar equipo</button></p>
+      </section>
+
+      <section class="card">
+        <h2>Novedades camionetas</h2>
+        <div class="tw"><table>
+          <thead><tr><th>Camioneta</th><th>Estado</th><th>Niveles</th><th>Ubicación</th><th>Observaciones</th><th></th></tr></thead>
+          <tbody id="tbCam"></tbody>
+        </table></div>
+        <p><button type="button" class="mini" data-add="camionetas">+ Agregar camioneta</button></p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="barra hidden" id="barra">
+  <span id="estadoBarra"></span>
+  <button type="button" class="pri" id="btnGuardar">Guardar turno</button>
+</div>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var ses = null, F = null, filtro = null, cambiado = false;
+  var MAX_ACT = 26, MAX_ENR = 5, MAX_CAM = 8;
+  var ACT = ['cuadrilla', 'hIni', 'hFin', 'desc', 'equipo', 'wo', 'tiempo', 'prod', 'clima', 'desp', 'espera', 'obs'];
+  var NOV = ['equipo', 'estado', 'niveles', 'ubicacion', 'obs'];
+
+  function ls(k, v){ try{ if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; } if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function mostrar(t, h){ $('resultado').innerHTML = h ? '<div class="msg ' + t + '">' + h + '</div>' : ''; if (h) window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function iso(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function hhmm(h){ var m = /^(\d{1,2}):(\d{2})/.exec(String(h || '')); return m ? pad(+m[1]) + ':' + m[2] : ''; }
+  function minutos(h){ var m = /^(\d{1,2}):(\d{2})/.exec(String(h || '')); return m ? +m[1] * 60 + +m[2] : null; }
+  function run(){ return google.script.run; }
+
+  function tiempo(a){ var i = minutos(a.hIni), f = minutos(a.hFin); return i == null || f == null ? '' : (((f - i + 1440) % 1440) / 60).toFixed(2); }
+  function alertas(a){
+    var out = [], t = parseFloat(tiempo(a));
+    if (t > 12) out.push('Más de 12 h');
+    var noche = filtro && filtro.turno === 'NOCTURNO';
+    var dentro = function(m){ return m == null ? true : (noche ? (m >= 1080 || m <= 360) : (m >= 360 && m <= 1080)); };
+    if (!dentro(minutos(a.hIni)) || !dentro(minutos(a.hFin))) out.push('Fuera del turno');
+    return out;
+  }
+
+  function inp(v, cls, attrs){ return '<input class="' + cls + '" value="' + esc(v) + '"' + (attrs || '') + '>'; }
+  function pintar(){
+    $('tbCuad').innerHTML = F.cuadrillas.map(function(q, i){
+      return '<tr data-i="' + i + '"><td class="num">' + (i + 1) + '</td>' +
+        ['tec1', 'tec2', 'camioneta', 'operador', 'equipo'].map(function(k){ return '<td>' + inp(q[k], k === 'camioneta' || k === 'equipo' ? 'w2' : 'w4', ' data-q="' + k + '"') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    pintarAct();
+    pintarNov('tbEnr', 'enrollacables'); pintarNov('tbCam', 'camionetas');
+  }
+  function pintarAct(){
+    $('tbAct').innerHTML = F.actividades.map(function(a, i){
+      var al = alertas(a);
+      return '<tr data-i="' + i + '" class="' + (al.indexOf('Más de 12 h') >= 0 ? 'rojo' : al.length ? 'al' : '') + '">' +
+        '<td>' + inp(a.cuadrilla, 'w1', ' data-a="cuadrilla" inputmode="numeric"') + '</td>' +
+        '<td>' + inp(hhmm(a.hIni), 'w2', ' data-a="hIni" type="time"') + '</td>' +
+        '<td>' + inp(hhmm(a.hFin), 'w2', ' data-a="hFin" type="time"') + '</td>' +
+        '<td><textarea class="w5" data-a="desc">' + esc(a.desc) + '</textarea>' + (al.length ? '<div class="alerta">' + esc(al.join(' · ')) + '</div>' : '') + '</td>' +
+        '<td>' + inp(a.equipo, 'w3', ' data-a="equipo"') + '</td>' +
+        '<td>' + inp(a.wo, 'w2', ' data-a="wo"') + '</td>' +
+        '<td class="num">' + tiempo(a) + '</td>' +
+        ['prod', 'clima', 'desp', 'espera'].map(function(k){ return '<td>' + inp(a[k], 'w1', ' data-a="' + k + '" inputmode="decimal"') + '</td>'; }).join('') +
+        '<td><textarea class="w4" data-a="obs">' + esc(a.obs) + '</textarea></td>' +
+        '<td><button type="button" class="mini" data-del="actividades" title="Quitar">✕</button></td></tr>';
+    }).join('');
+    $('cntAct').textContent = F.actividades.length + ' de ' + MAX_ACT + ' filas del formato';
+  }
+  function pintarNov(tb, lista){
+    $(tb).innerHTML = F[lista].map(function(o, i){
+      return '<tr data-i="' + i + '" data-l="' + lista + '">' + NOV.map(function(k){
+        return '<td>' + (k === 'obs' ? '<textarea class="w4" data-n="obs">' + esc(o.obs) + '</textarea>' : inp(o[k], k === 'equipo' ? 'w2' : 'w3', ' data-n="' + k + '"')) + '</td>';
+      }).join('') + '<td><button type="button" class="mini" data-del="' + lista + '" title="Quitar">✕</button></td></tr>';
+    }).join('');
+  }
+
+  /* lo que escribe el supervisor queda en F */
+  document.addEventListener('input', function(e){
+    var el = e.target, tr = el.closest && el.closest('tr'); if (!tr || !F) return;
+    var i = +tr.getAttribute('data-i');
+    if (el.hasAttribute('data-q')) F.cuadrillas[i][el.getAttribute('data-q')] = el.value;
+    else if (el.hasAttribute('data-a')) F.actividades[i][el.getAttribute('data-a')] = el.value;
+    else if (el.hasAttribute('data-n')) F[tr.getAttribute('data-l')][i][el.getAttribute('data-n')] = el.value;
+    else return;
+    marcar();
+  });
+  document.addEventListener('change', function(e){
+    var el = e.target; if (el.hasAttribute && el.hasAttribute('data-a') && /^(hIni|hFin)$/.test(el.getAttribute('data-a'))) setTimeout(pintarAct, 0);
+  });
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('button'); if (!b || !F) return;
+    var del = b.getAttribute('data-del'), add = b.getAttribute('data-add');
+    if (del){ F[del].splice(+b.closest('tr').getAttribute('data-i'), 1); marcar(); pintar(); }
+    if (add){
+      if (F[add].length >= (add === 'camionetas' ? MAX_CAM : MAX_ENR)){ mostrar('err', 'El formato no tiene más filas para ' + add + '.'); return; }
+      F[add].push({ equipo: '', estado: '', niveles: '', ubicacion: '', obs: '' }); marcar(); pintar();
+    }
+  });
+  $('btnAddAct').onclick = function(){
+    if (F.actividades.length >= MAX_ACT){ mostrar('err', 'El formato tiene ' + MAX_ACT + ' filas de actividades.'); return; }
+    F.actividades.push({ cuadrilla: '', hIni: '', hFin: '', desc: '', equipo: '', wo: '', prod: '', clima: '', desp: '', espera: '', obs: '' });
+    marcar(); pintarAct();
+  };
+  function marcar(){ cambiado = true; $('estadoBarra').textContent = 'Cambios sin guardar'; }
+
+  function avisos(r){
+    var l = [];
+    if (r.guardado) l.push('Este turno ya está guardado en "' + esc(r.archivo) + '". Si guarda de nuevo, se reemplaza.');
+    if (r.masDe26) l.push('El turno tiene más actividades de las que caben en el formato (' + MAX_ACT + ').');
+    (r.revisar || []).forEach(function(x){ l.push(esc(x)); });
+    var n = r.actividades.filter(function(a){ return alertas(a).length; }).length;
+    if (n) l.push(n + ' actividad(es) con alerta de horario (marcadas en color).');
+    return l;
+  }
+
+  $('btnGenerar').onclick = function(){
+    if (cambiado && !confirm('Hay cambios sin guardar. ¿Generar de nuevo y perderlos?')) return;
+    filtro = { fecha: $('fFecha').value, area: $('fArea').value, grupo: $('fGrupo').value, turno: $('fTurno').value };
+    ls('fd_filtro', filtro);
+    $('btnGenerar').disabled = true; $('btnGenerar').textContent = 'Generando…'; mostrar('', '');
+    run().withSuccessHandler(function(r){
+      $('btnGenerar').disabled = false; $('btnGenerar').textContent = 'Generar formato';
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      F = r; cambiado = false; pintar();
+      $('formato').classList.remove('hidden');
+      $('barra').classList.toggle('hidden', !r.edita);
+      $('estadoBarra').textContent = r.mina + ' · Grupo ' + filtro.grupo + ' · ' + r.pestana;
+      var l = avisos(r);
+      mostrar(l.length ? 'warn' : 'ok', l.length ? l.join('<br>') : 'Formato generado. Revíselo, corrija lo que haga falta y guarde el turno.');
+    }).withFailureHandler(function(e){
+      $('btnGenerar').disabled = false; $('btnGenerar').textContent = 'Generar formato';
+      mostrar('err', 'No se pudo generar: ' + esc(e && e.message || 'sin conexión'));
+    }).getFormatoDiario(ses.usuario, ses.pin, filtro);
+  };
+
+  $('btnGuardar').onclick = function(){
+    if (!F) return;
+    if (!confirm('¿Guardar el turno ' + F.pestana + ' de ' + F.mina + ', grupo ' + filtro.grupo + '?' + (F.guardado ? '\nYa estaba guardado: se reemplaza.' : ''))) return;
+    var datos = { cuadrillas: F.cuadrillas, actividades: F.actividades, enrollacables: F.enrollacables, camionetas: F.camionetas };
+    $('btnGuardar').disabled = true; $('estadoBarra').textContent = 'Guardando…';
+    run().withSuccessHandler(function(r){
+      $('btnGuardar').disabled = false;
+      if (!r.ok){ $('estadoBarra').textContent = ''; mostrar('err', esc(r.error)); return; }
+      cambiado = false; F.guardado = true; $('estadoBarra').textContent = 'Guardado';
+      mostrar('ok', 'Turno guardado' + (r.reemplazo ? ' (reemplazó el anterior)' : '') + ': pestaña "' + esc(r.pestana) + '" en "' + esc(r.archivo) + '".<br>' +
+        esc(r.ruta) + '<br><a href="' + esc(r.url) + '" target="_blank" rel="noopener">Abrir en Drive</a>');
+    }).withFailureHandler(function(e){
+      $('btnGuardar').disabled = false; $('estadoBarra').textContent = 'Cambios sin guardar';
+      mostrar('err', 'No se pudo guardar: ' + esc(e && e.message || 'sin conexión'));
+    }).guardarFormatoDiario(ses.usuario, ses.pin, filtro, datos);
+  };
+
+  function entrar(){
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden'); $('btnSalir').classList.remove('hidden');
+    $('sub').textContent = ses.nombre + (ses.edita ? '' : ' · solo consulta');
+    var f = ls('fd_filtro'), hoy = new Date();
+    $('fFecha').value = f && f.fecha || iso(hoy);
+    if (f){ $('fArea').value = f.area; $('fGrupo').value = f.grupo; $('fTurno').value = f.turno; }
+  }
+  $('btnIngresar').onclick = function(){
+    var u = $('usuario').value.trim(), p = $('pin').value.trim();
+    if (!u || !p){ mostrar('err', 'Escriba usuario y PIN.'); return; }
+    $('btnIngresar').disabled = true;
+    run().withSuccessHandler(function(r){
+      $('btnIngresar').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      ses = r; ses.usuario = r.nombre; ses.pin = p; ls('rev_ses', ses); mostrar('', ''); entrar();
+    }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar.'); }).ingresarSupervisor(u, p);
+  };
+  $('btnSalir').onclick = function(){
+    if (cambiado && !confirm('Hay cambios sin guardar. ¿Salir?')) return;
+    ls('rev_ses', null); location.reload();
+  };
+  window.addEventListener('beforeunload', function(e){ if (cambiado){ e.preventDefault(); e.returnValue = ''; } });
+
+  run().withSuccessHandler(function(x){ $('dlUsuarios').innerHTML = x.usuarios.map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); }).getInicioFormato();
+  ses = ls('rev_ses');
+  if (ses && ses.usuario && ses.pin) entrar(); else ses = null;
+})();
+</script>
+</body>
+</html>

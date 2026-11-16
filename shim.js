@@ -3,7 +3,7 @@
 (function(){
   'use strict';
   var API = 'https://script.google.com/macros/s/AKfycbz2zi7LsXSYiXYZPP6X4wRYtxkcRYBHJwGQ5VaaOm6X3Xnb5Zb3ur7iqA6uAHp-nICQFA/exec';
-  var GUARDAR = { getInicioTareas: 1, getInicioCajas: 1, getInicio: 1, getInicioRevision: 1 };   // se guardan para abrir sin señal
+  var GUARDAR = { getInicioTareas: 1, getInicioCajas: 1, getInicio: 1, getInicioRevision: 1, getInicioFormato: 1 };   // se guardan para abrir sin señal
   function leer(k){ try{ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; }catch(e){ return null; } }
   function llamar(fn, args, ok, fail){
     var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -36,8 +36,8 @@
   window.google = { script: {} };
   Object.defineProperty(window.google.script, 'run', { get: runner });
   /* menú común de la app */
-  var PAGINAS = [['index.html', 'Tareas'], ['cajas.html', 'Cajas/torres'], ['inventario.html', 'Inventario'], ['consulta.html', 'Consulta'], ['revision.html', 'Revisión']];
-  var SOLO_SENAL = { 'consulta.html': 1, 'revision.html': 1 };
+  var PAGINAS = [['index.html', 'Tareas'], ['cajas.html', 'Cajas/torres'], ['inventario.html', 'Inventario'], ['consulta.html', 'Consulta'], ['revision.html', 'Revisión'], ['formato.html', 'Formato diario']];
+  var SOLO_SENAL = { 'consulta.html': 1, 'revision.html': 1, 'formato.html': 1 };
   document.addEventListener('DOMContentLoaded', function(){
     var aqui = location.pathname.split('/').pop() || 'index.html';
     var st = document.createElement('style');

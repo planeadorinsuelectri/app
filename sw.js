@@ -1,6 +1,6 @@
 /* Guarda la app en el celular para que abra sin señal. VERSION cambia en cada publicación. */
-var VERSION = 'insu-66e0996c6e';
-var ARCHIVOS = ['./', 'index.html', 'cajas.html', 'inventario.html', 'consulta.html', 'revision.html', 'shim.js', 'manifest.json', 'icono-192.png', 'icono-512.png', 'logo.png'];
+var VERSION = 'insu-665bbcdac1';
+var ARCHIVOS = ['./', 'index.html', 'cajas.html', 'inventario.html', 'consulta.html', 'revision.html', 'formato.html', 'shim.js', 'manifest.json', 'icono-192.png', 'icono-512.png', 'logo.png'];
 self.addEventListener('install', function(e){
   e.waitUntil(caches.open(VERSION).then(function(c){ return c.addAll(ARCHIVOS.map(function(u){ return new Request(u, { cache: 'reload' }); })); }).then(function(){ return self.skipWaiting(); }));
 });
