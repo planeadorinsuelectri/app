@@ -312,7 +312,7 @@
     return h;
   }
 
-  /* ---------- revisión del supervisor ---------- */
+  /* ---------- PDF y corrección (supervisor / coordinador) ---------- */
   function botonesParte(p, i){
     if (!st.revisa || p.REVISION === 'EXCEL') return '';
     return '<div class="add"><button type="button" class="btn" data-corr-parte="' + i + '">Corregir: ' + esc(I.partes[p.PARTE] || '') + '</button></div>';
@@ -321,24 +321,21 @@
     var app = r.partes.filter(function(p){ return p.REVISION !== 'EXCEL'; });
     if (!app.length) return '';
     var pdf = app.map(function(p){ return p.PDF; }).filter(Boolean)[0], h = '';
-    var pend = app.some(function(p){ return p.REVISION !== 'REVISADO'; });
-    if (!pend) h += '<p class="mut">Revisado por ' + esc(app[0].REVISADO_POR) + ' · ' + esc(app[0].FECHA_REVISION) + '</p>';
     if (pdf) h += '<div class="add"><a class="btn" style="text-align:center;text-decoration:none;line-height:30px" href="' + esc(pdf) + '" target="_blank">Ver PDF</a></div>';
-    if (st.revisa && pend) h += '<div class="add"><button type="button" class="btn pri" id="btnAprobar">Aprobar y generar PDF</button></div>';
-    else if (st.revisa) h += '<div class="add"><button type="button" class="btn" id="btnAprobar">Volver a generar el PDF</button></div>';
+    h += '<div class="add"><button type="button" class="btn' + (pdf ? '' : ' pri') + '" id="btnAprobar">' + (pdf ? 'Volver a generar el PDF' : 'Generar PDF') + '</button></div>';
     return h;
   }
   $('verCuerpo').addEventListener('click', function(ev){
     var c = ev.target.closest('[data-corr-parte]');
     if (c){ corregirParte(st.det.partes[+c.dataset.corrParte]); return; }
     var a = ev.target.closest('#btnAprobar'); if (!a) return;
-    if (!navigator.onLine){ mostrar('err', 'Para aprobar necesita señal.'); return; }
+    if (!navigator.onLine){ mostrar('err', 'Para generar el PDF necesita señal.'); return; }
     a.disabled = true; a.textContent = 'Generando PDF…';
     gs().withSuccessHandler(function(r){
-      if (!r || !r.ok){ a.disabled = false; a.textContent = 'Aprobar y generar PDF'; mostrar('err', esc((r && r.error) || 'Error')); return; }
+      if (!r || !r.ok){ a.disabled = false; a.textContent = 'Generar PDF'; mostrar('err', esc((r && r.error) || 'Error')); return; }
       mostrar('ok', esc(r.mensajes.join(' ')) + ' <a href="' + esc(r.pdf) + '" target="_blank">Abrir PDF</a>');
       verPM(st.det.id); cargarPendientes();
-    }).withFailureHandler(function(e){ a.disabled = false; a.textContent = 'Aprobar y generar PDF'; mostrar('err', 'No se pudo aprobar: ' + esc(e && e.message)); })
+    }).withFailureHandler(function(e){ a.disabled = false; a.textContent = 'Generar PDF'; mostrar('err', 'No se pudo generar el PDF: ' + esc(e && e.message)); })
       .aprobarPM(ses.usuario, ses.pin, st.det.id);
   });
   function corregirParte(p){
@@ -357,8 +354,7 @@
     if (!gs() || !ses || !navigator.onLine) return;
     gs().withSuccessHandler(function(r){
       st.revisa = !!(r && r.ok);
-      $('cardPend').classList.toggle('hidden', !st.revisa);
-      if (!st.revisa) return;
+      $('cardPend').classList.add('hidden'); return;
       $('pend').innerHTML = r.pms.length ? r.pms.map(function(p){
         return '<div class="fila"><span><b>' + esc(p.equipo) + '</b> · ' + esc(fTxt(p.fecha)) + '<br>' + p.partes.map(function(x){ return '<span class="pill">' + esc(I.partes[x.parte]) + ' · ' + esc(x.reporto) + '</span>'; }).join(' ') +
           '</span><button type="button" class="btn" style="flex:0 0 auto" data-ver="' + esc(p.id) + '">Revisar</button></div>';
@@ -640,7 +636,7 @@
       var c2 = ls(K_COLA) || [], j = c2.findIndex(function(x){ return x.p.idEnvio === item.p.idEnvio; });
       if (r && r.ok){
         if (j >= 0) c2.splice(j, 1); ls(K_COLA, c2);
-        mostrar('ok', '<b>Registrado:</b> ' + esc((r.mensajes || []).join(' · ')));
+        mostrar('ok', '<b>Registrado:</b> ' + esc((r.mensajes || []).join(' · ')) + (r.pdf ? ' <a href="' + esc(r.pdf) + '" target="_blank">Abrir PDF</a>' : ''));
       } else {
         if (j >= 0){ c2[j].error = (r && r.error) || 'Error'; ls(K_COLA, c2); }
         mostrar('err', 'No se registró: ' + esc((r && r.error) || 'Error') + '. Toque "Corregir" en el pendiente.');
