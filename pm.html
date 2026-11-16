@@ -62,6 +62,10 @@
   .fotos input{min-height:36px;padding:6px;font-size:13px;margin-top:4px}
   .fotos button{position:absolute;top:4px;right:4px;border:none;border-radius:99px;background:#000a;color:#fff;width:28px;height:28px}
   details summary{cursor:pointer;font-size:14px;padding:6px 0}
+  .tv{overflow-x:auto;margin-top:6px} .tv table{border-collapse:collapse;font-size:12px;width:100%} .tv th,.tv td{border:1px solid var(--ln);padding:4px 5px;text-align:center;white-space:nowrap}
+  .tv td.l,.tv th.l{text-align:left;white-space:normal} .tv .no{background:var(--errbg);color:var(--err);font-weight:700} .tv .si{color:var(--ok)}
+  .kv{font-size:13px;margin:2px 0} .kv b{display:inline}
+  .vfot{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px} .vfot img{width:100%;border-radius:6px}
 </style>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1f2937">
@@ -100,6 +104,12 @@
     <div id="bxMina" class="hidden"><label>Mina</label><div class="seg" id="mina"><button type="button" data-v="ED">El Descanso</button><button type="button" data-v="PBN">Pribbenow</button></div></div>
     <p class="info" id="infoEq"></p>
     <div id="historial"></div>
+  </section>
+
+  <section class="card hidden" id="cardVer">
+    <h2 id="verTit">PM</h2>
+    <div id="verCuerpo"></div>
+    <div class="add"><button type="button" id="btnCerrarVer">Cerrar</button></div>
   </section>
 
   <section class="card hidden" id="cardParte">
@@ -223,13 +233,13 @@
     var pms = (r && r.pms) || [];
     h += '<div class="add"><button type="button" class="btn pri" data-pm="">+ Nuevo PM</button></div>';
     if (pms.length){
-      h += '<h3>PM en la app</h3>' + pms.map(function(p){
+      h += '<h3>PM registrados</h3>' + pms.map(function(p){
         var tiene = {}; p.partes.forEach(function(x){ tiene[x.parte] = x; });
         var falta = ['CIRCUITO', 'TORRES'].filter(function(k){ return !tiene[k]; });
         return '<div class="fila"><span><b>' + esc(fTxt(p.fecha)) + '</b><br>' + p.partes.map(function(x){
-          return '<span class="pill' + (x.revision === 'REVISADO' ? ' ok' : '') + '">' + esc(I.partes[x.parte]) + ' · G' + esc(x.grupo) + (x.revision === 'REVISADO' ? ' ✓' : '') + '</span>' +
+          return '<span class="pill' + (x.revision === 'REVISADO' ? ' ok' : '') + '">' + esc(I.partes[x.parte]) + (x.grupo ? ' · G' + esc(x.grupo) : '') + (x.revision === 'REVISADO' ? ' ✓' : x.revision === 'EXCEL' ? ' · Excel' : '') + '</span>' +
             (x.pdf ? ' <a href="' + esc(x.pdf) + '" target="_blank">PDF</a>' : '');
-        }).join(' ') + '</span>' + (falta.length ? '<button type="button" class="btn" style="flex:0 0 auto" data-pm="' + esc(p.id) + '" data-falta="' + falta[0] + '">Completar ' + esc(I.partes[falta[0]].toLowerCase()) + '</button>' : '') + '</div>';
+        }).join(' ') + '</span><span style="display:flex;gap:6px;flex:0 0 auto">' + (navigator.onLine && p.partes[0].revision !== 'POR ENVIAR' ? '<button type="button" class="btn" data-ver="' + esc(p.id) + '">Ver</button>' : '') + (falta.length && !/^XLS-/.test(p.id) ? '<button type="button" class="btn" style="flex:0 0 auto" data-pm="' + esc(p.id) + '" data-falta="' + falta[0] + '">Completar ' + esc(I.partes[falta[0]].toLowerCase()) + '</button>' : '') + '</span></div>';
       }).join('');
     } else if (r) h += '<p class="mut">Todavía no hay PM de este equipo en la app.</p>';
     var xs = (r && r.excel) || [];
@@ -242,6 +252,7 @@
     $('historial').innerHTML = h;
   }
   $('historial').addEventListener('click', function(ev){
+    var v = ev.target.closest('[data-ver]'); if (v){ verPM(v.dataset.ver); return; }
     var b = ev.target.closest('[data-pm]'); if (!b) return;
     if (!st.mina){ mostrar('err', 'Elija la mina del equipo.'); return; }
     st.idPm = b.dataset.pm || 'PM-' + uid();
@@ -251,6 +262,48 @@
     if (b.dataset.falta) elegirParte(b.dataset.falta); else pintarFormulario();
     $('cardParte').scrollIntoView({ behavior: 'smooth' });
   });
+
+  /* ---------- ver un PM (app o Excel) ---------- */
+  function verPM(id){
+    $('cardVer').classList.remove('hidden'); $('verTit').textContent = 'Cargando…'; $('verCuerpo').innerHTML = '';
+    $('cardVer').scrollIntoView({ behavior: 'smooth' });
+    gs().withSuccessHandler(function(r){
+      if (!r || !r.ok){ $('verTit').textContent = (r && r.error) || 'Error'; return; }
+      var p0 = r.partes[0];
+      $('verTit').textContent = p0.EQUIPO + ' · PM ' + fTxt(p0.FECHA) + (p0.REVISION === 'EXCEL' ? ' · del Excel' : '');
+      $('verCuerpo').innerHTML = r.partes.map(function(p){ return parteHtml(p, r); }).join('');
+    }).withFailureHandler(function(){ $('verTit').textContent = 'No se pudo cargar. Revise la señal.'; }).getDetallePM(ses.usuario, ses.pin, id);
+  }
+  $('btnCerrarVer').onclick = function(){ $('cardVer').classList.add('hidden'); };
+  function celEst(v){ return v === 'OK' ? '<td class="si">✓</td>' : v === 'NO OK' ? '<td class="no">✗</td>' : v === 'N/A' ? '<td>N/A</td>' : '<td class="mut">–</td>'; }
+  function kv(k, v){ return v ? '<p class="kv"><b>' + esc(k) + ':</b> ' + esc(v) + '</p>' : ''; }
+  function parteHtml(p, r){
+    var d = p.DATOS || {}, h = '<h3>' + esc(I.partes[p.PARTE] || p.PARTE) + '</h3>';
+    h += kv('Fecha', fTxt(p.FECHA) + (p.HORA_INICIO ? ' · ' + p.HORA_INICIO + ' a ' + p.HORA_FIN : '')) + kv('Grupo', p.GRUPO) + kv('Supervisor', p.SUPERVISOR) + kv('Técnicos', p.TECNICOS);
+    if (p.PARTE === 'CIRCUITO'){
+      h += kv('Circuito', p.CIRCUITO) + kv('Subestación', p.SUBESTACION) + kv('Feeder', p.FEEDER);
+      var ts = d.tramos || [];
+      if (ts.length) h += '<div class="tv"><table><tr><th class="l">Cable</th><th>Tipo</th><th>De</th><th>A</th><th>Calibre</th><th>Ω</th></tr>' + ts.map(function(t){
+        return '<tr><td class="l">' + esc(t.cable) + '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.de) + '</td><td>' + esc(t.a) + '</td><td>' + esc(t.calibre) + '</td><td>' + esc(t.ohms) + '</td></tr>'; }).join('') + '</table></div>';
+      var cs = d.cajas || [];
+      if (cs.length) h += '<div class="tv"><table><tr><th class="l">Ítem</th>' + cs.map(function(c){ return '<th>' + esc(c.n) + '</th>'; }).join('') + '</tr>' +
+        r.itemsCaja.map(function(k){ return '<tr><td class="l">' + esc(k.charAt(0) + k.slice(1).toLowerCase()) + '</td>' + cs.map(function(c){ return celEst((c.items || {})[k]); }).join('') + '</tr>'; }).join('') +
+        '<tr><td class="l">¿Reparada?</td>' + cs.map(function(c){ return '<td>' + esc(c.reparada === 'SI' ? 'SÍ' : c.reparada || '–') + '</td>'; }).join('') + '</tr>' +
+        '<tr><td class="l">¿Reemplazada?</td>' + cs.map(function(c){ return '<td>' + esc(c.reemplazada === 'SI' ? 'SÍ' : c.reemplazada || '–') + '</td>'; }).join('') + '</tr></table></div>';
+    } else {
+      h += kv('Ubicación', d.ubicacion);
+      var to = d.torres || [];
+      if (to.length) h += '<div class="tv"><table><tr><th class="l">Ítem</th>' + to.map(function(t){ return '<th>' + esc(t.id) + (t.guayas ? '<br><span class="mut">' + esc(t.guayas) + ' guaya(s)</span>' : '') + '</th>'; }).join('') + '<th class="l">Observación</th></tr>' +
+        r.itemsTorre.map(function(x, i){ var n = i + 1; return '<tr><td class="l">' + n + '. ' + esc(x) + '</td>' + to.map(function(t){ return celEst((t.items || {})[n]); }).join('') +
+          '<td class="l">' + esc(to.map(function(t){ return (t.obs || {})[n]; }).filter(Boolean).filter(function(v, j, a){ return a.indexOf(v) === j; }).join(' · ')) + '</td></tr>'; }).join('') +
+        '<tr><td class="l">28. Calibre guaya #1</td>' + to.map(function(t){ return '<td>' + esc(t.calibre1) + '</td>'; }).join('') + '<td></td></tr>' +
+        '<tr><td class="l">29. Calibre guaya #2</td>' + to.map(function(t){ return '<td>' + esc(t.calibre2) + '</td>'; }).join('') + '<td></td></tr></table></div>';
+    }
+    h += kv('Observaciones', p.OBSERVACIONES);
+    if ((p.FOTOS || []).length) h += '<div class="vfot">' + p.FOTOS.map(function(f){ return '<a href="' + esc(f.ver) + '" target="_blank"><img src="' + esc(f.url) + '" alt="' + esc(f.nota) + '"></a>'; }).join('') + '</div>';
+    h += '<p class="mut">' + (p.REVISION === 'EXCEL' ? 'Leído del Excel (solo consulta).' : 'Reportó ' + esc(p.REPORTADO_POR) + ' · ' + esc(p.FECHA_REGISTRO)) + '</p>';
+    return h;
+  }
 
   /* ---------- parte ---------- */
   $('parte').addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (b) elegirParte(b.dataset.v); });

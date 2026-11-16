@@ -82,6 +82,7 @@
       <div><label for="fArea">PIT / mina</label><select id="fArea"></select></div>
       <div><label for="fDesde">Turnos desde</label><input id="fDesde" type="date"></div>
       <div><label for="fHasta">hasta</label><input id="fHasta" type="date"></div>
+      <div id="dOrigen"><label for="fOrigen">Origen</label><select id="fOrigen"><option value="TODO">App + formularios</option><option value="">Solo app</option><option value="FORM">Solo formularios</option></select></div>
       <div id="dEstado"><label for="fEstado">Mostrar</label><select id="fEstado"><option value="SIN">Sin revisar</option><option value="REV">Revisadas</option><option value="">Todas</option></select></div>
       <div><label for="fTexto">Buscar</label><input id="fTexto" placeholder="Equipo, técnico, cuadrilla…"></div>
       <div><button type="button" id="btnCargar" class="pri" style="width:100%">Cargar</button></div>
@@ -190,7 +191,7 @@
   function modoVista(){
     var i = verInsp();
     $('twT').classList.toggle('hidden', i); $('twI').classList.toggle('hidden', !i);
-    $('dEstado').classList.toggle('hidden', i);
+    $('dEstado').classList.toggle('hidden', i); $('dOrigen').classList.toggle('hidden', i);
     $('barra').classList.toggle('hidden', i || !ses.edita);
     if (i) $('cardDet').classList.add('hidden');
   }
@@ -229,7 +230,7 @@
     if (Object.keys(cambios).length && !confirm('Hay cambios sin guardar. ¿Cargar de nuevo y perderlos?')) return;
     cambios = {}; actual = null; pintarPend(); $('cardDet').classList.add('hidden');
     $('cnt').textContent = 'Cargando…';
-    var f = { area: $('fArea').value, desde: $('fDesde').value, hasta: $('fHasta').value, estado: $('fEstado').value };
+    var f = { area: $('fArea').value, desde: $('fDesde').value, hasta: $('fHasta').value, estado: $('fEstado').value, origen: $('fOrigen').value };
     run().withSuccessHandler(function(r){
       if (!r.ok){ mostrar('err', esc(r.error)); return; }
       datos = r.tareas; pintar();
@@ -244,12 +245,15 @@
       return !q || [t.EQUIPO, t.CIRCUITO, t.TECNICOS, t.TIPO_TRABAJO, t.REPORTADO_POR, 'G' + t.GRUPO + ' C' + t.CUADRILLA, t.DESCRIPCION].join(' ').toUpperCase().indexOf(q) >= 0;
     });
   }
+  function esForm(t){ return /^Formulario/.test(t.ORIGEN || ''); }
+  function editable(t){ return ses.edita && !esForm(t); }
   function pillRev(t){
+    if (esForm(t)) return '<span class="pill">Formulario</span>';
     if (cambios[t.ID]) return '<span class="pill sin">Por guardar</span>';
     return t.REVISION === 'Revisado' ? '<span class="pill rev">Revisado · ' + esc(String(t.REVISADO_POR).split(' ')[0]) + '</span>' : '<span class="pill sin">Sin revisar</span>';
   }
   function filaHtml(t){
-    var inp = function(k){ return ses.edita ? '<input data-k="' + k + '" inputmode="decimal" value="' + esc(valCol(t, k)) + '">' : esc(t[k]); };
+    var inp = function(k){ return editable(t) ? '<input data-k="' + k + '" inputmode="decimal" value="' + esc(valCol(t, k)) + '">' : esc(t[k]); };
     return '<tr data-id="' + esc(t.ID) + '" class="' + (cambios[t.ID] ? 'cambio ' : '') + (actual && actual.ID === t.ID ? 'sel' : '') + '">' +
       '<td>' + esc(t.FECHA_TURNO.slice(8, 10) + '/' + t.FECHA_TURNO.slice(5, 7)) + '</td><td>' + esc(t.TURNO) + '</td><td>' + esc(t.AREA) + '</td>' +
       '<td>' + esc(t.GRUPO + '/' + t.CUADRILLA) + '</td><td class="' + (valCampo(t, 'clase') === 'DOWN' ? 'down' : '') + '">' + esc(valCampo(t, 'clase')) + '</td>' +
@@ -301,11 +305,11 @@
     opts(f.querySelector('[data-c=modo]'), ses.modos || [], valCampo(t, 'modo'));
     f.querySelectorAll('[data-c]').forEach(function(el){
       var k = el.dataset.c; if (['tipo','estado','componente','modo'].indexOf(k) < 0) el.value = valCampo(t, k) || (k === 'cambioPlan' || k === 'cableCola' ? 'No' : '');
-      el.disabled = !ses.edita;
+      el.disabled = !editable(t);
     });
     var just = valCampo(t, 'justificaciones');
     $('chJust').innerHTML = (ses.justificaciones || []).concat(just.filter(function(j){ return (ses.justificaciones || []).indexOf(j) < 0; }))
-      .map(function(j){ return '<button type="button"' + (just.indexOf(j) >= 0 ? ' class="sel"' : '') + (ses.edita ? '' : ' disabled') + '>' + esc(j) + '</button>'; }).join('');
+      .map(function(j){ return '<button type="button"' + (just.indexOf(j) >= 0 ? ' class="sel"' : '') + (editable(t) ? '' : ' disabled') + '>' + esc(j) + '</button>'; }).join('');
     var down = clase === 'DOWN', elec = down && /EL[EÉ]CTRICO/i.test(valCampo(t, 'tipo'));
     f.querySelectorAll('[data-solo]').forEach(function(el){ el.classList.toggle('hidden', el.dataset.solo === 'down' ? !down : !elec); });
     var info = [];
@@ -315,20 +319,21 @@
     if (t.MIN_DOWN) info.push('Minutos DOWN: ' + t.MIN_DOWN + ' · Duración: ' + t.MIN_TOTAL + ' min (se recalculan al guardar)');
     if (t.REVISADO_POR) info.push('Revisado por ' + t.REVISADO_POR + ' · ' + t.FECHA_REVISION);
     if (t.NOTA_REVISION) info.push(t.NOTA_REVISION);
-    if (ses.edita) info.push('Cables, cajas y torres no se corrigen aquí: ya movieron el inventario.');
+    if (esForm(t)) info.push('Viene del formulario (' + t.ORIGEN + '): solo se puede ver.');
+    else if (ses.edita) info.push('Cables, cajas y torres no se corrigen aquí: ya movieron el inventario.');
     $('detInfo').textContent = info.join('\n');
     $('cardDet').classList.remove('hidden');
     $('cardDet').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   $('form').addEventListener('change', function(ev){
-    var el = ev.target; if (!el.dataset.c || !actual) return;
+    var el = ev.target; if (!el.dataset.c || !actual || !editable(actual)) return;
     cambio(actual.ID).campos[el.dataset.c] = el.value;
     if (el.dataset.c === 'clase') { cambio(actual.ID).campos.tipo = ''; }
     repintarFila(actual.ID); pintarPend();
     if (el.dataset.c === 'clase' || el.dataset.c === 'tipo') pintarDetalle();
   });
   $('chJust').addEventListener('click', function(ev){
-    var b = ev.target.closest('button'); if (!b || !actual || !ses.edita) return;
+    var b = ev.target.closest('button'); if (!b || !actual || !editable(actual)) return;
     b.classList.toggle('sel');
     cambio(actual.ID).campos.justificaciones = Array.prototype.filter.call($('chJust').children, function(x){ return x.classList.contains('sel'); }).map(function(x){ return x.textContent; });
     repintarFila(actual.ID); pintarPend();
