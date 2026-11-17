@@ -341,13 +341,18 @@
 
   /* ---------- guardar ---------- */
   $('btnTodas').onclick = function(){
-    var v = visibles().filter(function(t){ return t.REVISION !== 'Revisado' && !cambios[t.ID]; });
+    var v = visibles().filter(function(t){ return t.REVISION !== 'Revisado' && !esForm(t) && !cambios[t.ID]; });
     if (!v.length){ mostrar('err', 'No hay tareas sin revisar en la lista.'); return; }
     if (!confirm('¿Dar por revisadas las ' + v.length + ' tareas sin revisar de la lista? Luego toque Guardar.')) return;
     v.forEach(function(t){ cambio(t.ID); });
     pintar(); pintarPend();
   };
   $('btnGuardar').onclick = function(){
+    Object.keys(cambios).forEach(function(id){
+      var t = datos.find(function(x){ return x.ID === id; });
+      if (!t || esForm(t)) delete cambios[id];   // las del formulario solo se ven
+    });
+    pintarPend();
     var ids = Object.keys(cambios);
     if (!ids.length){ mostrar('err', 'No hay cambios.'); return; }
     var lista = ids.map(function(id){
