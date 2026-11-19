@@ -47,6 +47,13 @@
   .fila button{border:none;background:none;color:var(--err);font-size:13px}
   .lnk{background:none;border:none;color:var(--acc);text-decoration:underline;font:inherit;font-size:13px;padding:0 4px}
   .hidden{display:none!important}
+  .falla{border-left:4px solid var(--warn);padding:2px 0 2px 10px;margin-top:8px}
+  .falla label{margin-top:8px}
+  .fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .fotos div{position:relative}
+  .fotos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block}
+  .fotos input{min-height:36px;padding:6px;font-size:13px;margin-top:4px}
+  .fotos button{position:absolute;top:4px;right:4px;border:none;border-radius:99px;background:#000a;color:#fff;width:28px;height:28px}
   .mut{color:var(--mut);font-size:13px}
 </style>
 <link rel="manifest" href="manifest.json">
@@ -126,6 +133,13 @@
     <div id="itemsTorre"></div>
   </section>
 
+  <section class="card hidden" id="cardFotos">
+    <h2>Fotos <span style="text-transform:none;letter-spacing:0">(opcional)</span></h2>
+    <p class="info" style="margin-top:0">Condición encontrada y reparación: es el soporte para analizar la falla.</p>
+    <input id="fotoIn" type="file" accept="image/*" multiple>
+    <div class="fotos" id="fotos"></div>
+  </section>
+
   <section class="card hidden" id="cardHechos">
     <h2>Enviados hoy</h2>
     <div id="hechos"></div>
@@ -141,9 +155,9 @@
   'use strict';
   var K_COLA = 'insp_cola', K_SES = 'tar_sesion', K_LISTAS = 'tar_listas_', K_TURNO = 'tar_turno', K_INI = 'insp_inicio', K_HECHOS = 'insp_hechos';
   var ses = null, L = null, I = null, enviando = false;
-  var st = { elemento: '' };
+  var st = { elemento: '', fotos: [] };
   var $ = function(id){ return document.getElementById(id); };
-  function ls(k, v){ try{ if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; } if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+  function ls(k, v){ try{ if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; } if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return null; } }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function gs(){ return (typeof google !== 'undefined' && google.script && google.script.run) ? google.script.run : null; }
   function norm(n){ return String(n == null ? '' : n).toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(^|[A-Z])0+(?=\d)/g, '$1'); }
@@ -169,6 +183,7 @@
     $('cardCaja').classList.toggle('hidden', !caja);
     $('cardTorre').classList.toggle('hidden', e !== 'TORRE');
     $('barEnviar').classList.toggle('hidden', !e);
+    $('cardFotos').classList.toggle('hidden', !e);
     if (!e || !I) return;
     opciones('mant', I.mant[e]); opciones('tipo', I.tipos[e]);
     $('lblNum').textContent = caja ? 'Número de la caja' : 'Número de la torre';
@@ -179,13 +194,13 @@
   function armarCaja(){
     $('compCaja').innerHTML = I.compCaja.map(function(c){
       return '<div class="item" data-comp="' + c[0] + '"><b>' + esc(c[1]) + '</b>' + segHtml(c[0], I.estadosCaja, 'OK') +
-        '<textarea class="rep hidden" placeholder="¿Qué reparación se hizo?"></textarea><textarea class="pen hidden" placeholder="¿Qué queda pendiente para reparar?"></textarea></div>';
+        '<textarea class="rep hidden" placeholder="¿Qué reparación se hizo?"></textarea><textarea class="pen hidden" placeholder="¿Qué queda pendiente para reparar?"></textarea>' + fallaHtml('CAJA', c[0], c[0]) + '</div>';
     }).join('');
   }
   function armarTorre(){
     $('itemsTorre').innerHTML = Object.keys(I.itemsTorre).map(function(g){
       return '<h2 style="margin-top:14px">' + esc(g) + '</h2>' + I.itemsTorre[g].map(function(it){
-        return '<div class="item" data-g="' + esc(g) + '" data-it="' + esc(it) + '"><b>' + esc(it) + '</b>' + segHtml(g + '|' + it, I.estadosTorre, 'BUENO') + '</div>';
+        return '<div class="item" data-g="' + esc(g) + '" data-it="' + esc(it) + '"><b>' + esc(it) + '</b>' + segHtml(g + '|' + it, I.estadosTorre, 'BUENO') + fallaHtml('TORRE', g, it) + '</div>';
       }).join('') + '<label>Observaciones ' + esc(g.toLowerCase()) + '</label><textarea data-obs="' + esc(g) + '" placeholder="Obligatorio si algo tiene reporte o reemplazo"></textarea>';
     }).join('');
   }
@@ -195,7 +210,91 @@
     Array.prototype.forEach.call(s.children, function(x){ x.classList.toggle('sel', x === b); });
     var it = s.closest('[data-comp]');
     if (it){ it.querySelector('.rep').classList.toggle('hidden', b.dataset.v !== 'REPARACION'); it.querySelector('.pen').classList.toggle('hidden', b.dataset.v !== 'REPORTE'); }
+    var item = s.closest('.item'), fa = item && item.querySelector('.falla');
+    if (fa){
+      var malo = ['REPORTE','REPARACION','SE REEMPLAZA'].indexOf(b.dataset.v) >= 0;
+      fa.classList.toggle('hidden', !malo);
+      fa.querySelector('.fpen').classList.toggle('hidden', b.dataset.v !== 'REPORTE');
+      var act = fa.querySelector('.fa');
+      if (malo && !act.value) act.value = b.dataset.v === 'SE REEMPLAZA' ? 'Reemplazar' : b.dataset.v === 'REPARACION' ? 'Reparar' : '';
+      if (malo && fa.querySelector('.fm').options.length < 2) pintarFalla(fa);
+    }
   });
+
+  /* ---------- falla del ítem: elemento, posición y modo (taxonomía v1.0) ---------- */
+  function modosDe(comp, elem){ return (I.tax && I.tax.modos || []).filter(function(x){ return x.c === comp && x.e === elem; }); }
+  function fallaHtml(comp, g, it){
+    if (!I.tax) return '';
+    var elems = comp === 'CAJA' ? (I.inspTax.CAJA[g] || []) : [I.inspTax.TORRE[it]].filter(Boolean);
+    if (!elems.length) return '';
+    var todos = comp === 'CAJA' ? (I.tax.modos || []).filter(function(x){ return x.c === 'CAJA'; }).map(function(x){ return x.e; })
+      .filter(function(e, i, a){ return a.indexOf(e) === i && elems.indexOf(e) < 0; }) : [];
+    var selE = elems.length === 1 && !todos.length ? '<input type="hidden" class="fe" value="' + esc(elems[0]) + '"><p class="info" style="margin-top:0">Elemento: ' + esc(elems[0]) + '</p>' :
+      '<label>Elemento que falló</label><select class="fe"><option value="">Elija…</option>' + elems.map(function(e){ return '<option>' + esc(e) + '</option>'; }).join('') +
+      (todos.length ? '<optgroup label="Otros de la caja">' + todos.map(function(e){ return '<option>' + esc(e) + '</option>'; }).join('') + '</optgroup>' : '') + '</select>';
+    return '<div class="falla hidden" data-fg="' + esc(g) + '" data-fit="' + esc(it) + '">' + selE +
+      '<div class="fpos hidden"><label>Posición</label><select class="fp"></select></div>' +
+      '<label>Modo de falla <span class="mut">(qué dejó de hacer)</span></label><select class="fm"></select><p class="info fimp"></p>' +
+      '<label>Actividad</label><select class="fa"><option value="">Elija…</option>' + ((I.tax.cat || {}).ACTIVIDAD || []).map(function(a){ return '<option>' + esc(a) + '</option>'; }).join('') + '</select>' +
+      '<div class="fpen hidden"><label>Material que requiere</label><input class="fmat" placeholder="Ej: 2 posiclanes 7/8&quot;, 1 microswitch E50">' +
+      '<label>¿Dónde se repara?</label><select class="fdo"><option value="">Elija…</option>' + (I.dondeRepara || []).map(function(d){ return '<option>' + esc(d) + '</option>'; }).join('') + '</select></div>' +
+      '</div>';
+  }
+  function pintarFalla(fa){
+    var comp = st.elemento, elem = fa.querySelector('.fe').value, ms = modosDe(comp, elem), fm = fa.querySelector('.fm'), v = fm.value;
+    fm.innerHTML = '<option value="">Elija…</option>' + ms.map(function(x){ return '<option value="' + esc(x.m) + '">' + esc(x.n || x.m) + '</option>'; }).join('');
+    fm.value = ms.some(function(x){ return x.m === v; }) ? v : (ms.length === 1 ? ms[0].m : '');
+    var p = ms.length ? String(ms[0].p || '').replace(/^#.*/, '') : '', fp = fa.querySelector('.fp'), pv = fp.value;
+    var ops = p.split(' | ').filter(Boolean);
+    fa.querySelector('.fpos').classList.toggle('hidden', !ops.length);
+    fp.innerHTML = '<option value="">Elija…</option>' + ops.map(function(x){ return '<option>' + esc(x) + '</option>'; }).join('');
+    var auto = ops.find(function(o){ return nI(o) === nI(fa.dataset.fg) || (fa.dataset.fit && nI(fa.dataset.fit).indexOf(nI(o)) >= 0); });
+    fp.value = ops.indexOf(pv) >= 0 ? pv : (auto || '');
+    pintarImp(fa);
+  }
+  function pintarImp(fa){
+    var x = modosDe(st.elemento, fa.querySelector('.fe').value).find(function(y){ return y.m === fa.querySelector('.fm').value; });
+    fa.querySelector('.fimp').textContent = x ? 'Impacto: ' + x.imp + (x.n ? ' · ' + x.m : '') : '';
+  }
+  document.addEventListener('change', function(ev){
+    var fa = ev.target.closest('.falla'); if (!fa) return;
+    if (ev.target.classList.contains('fe')) pintarFalla(fa);
+    if (ev.target.classList.contains('fm')) pintarImp(fa);
+  });
+  function leerFallas(){
+    if (!I.tax) return undefined;
+    var out = [];
+    document.querySelectorAll('.falla').forEach(function(fa){
+      if (fa.classList.contains('hidden')) return;
+      out.push({ g: fa.dataset.fg, it: fa.dataset.fit, elem: fa.querySelector('.fe').value, pos: fa.querySelector('.fp').value,
+        modo: fa.querySelector('.fm').value, act: fa.querySelector('.fa').value, material: fa.querySelector('.fmat').value.trim(), donde: fa.querySelector('.fdo').value });
+    });
+    return out;
+  }
+
+  /* ---------- fotos (se achican antes de guardarlas) ---------- */
+  $('fotoIn').addEventListener('change', function(){
+    var files = Array.prototype.slice.call(this.files || []); this.value = '';
+    var max = (I && I.maxFotos) || 6, cupo = max - st.fotos.length;
+    if (files.length > cupo) mostrar('warn', 'Máximo ' + max + ' fotos por reporte. Se agregan ' + Math.max(cupo, 0) + '.');
+    files.slice(0, Math.max(cupo, 0)).forEach(function(f){ achicar(f, function(b64){ st.fotos.push({ b64: b64, nota: '' }); pintarFotos(); }); });
+  });
+  function achicar(file, cb){
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function(){
+      var k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      cb(c.toDataURL('image/jpeg', 0.6));
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); mostrar('err', 'No se pudo leer una foto.'); };
+    img.src = url;
+  }
+  function pintarFotos(){
+    $('fotos').innerHTML = st.fotos.map(function(f, i){ return '<div><img src="' + f.b64 + '" alt=""><button type="button" data-i="' + i + '">✕</button><input data-nota="' + i + '" placeholder="Nota" value="' + esc(f.nota) + '"></div>'; }).join('');
+  }
+  $('fotos').addEventListener('click', function(ev){ var b = ev.target.closest('button[data-i]'); if (!b) return; st.fotos.splice(+b.dataset.i, 1); pintarFotos(); });
+  $('fotos').addEventListener('input', function(ev){ var i = ev.target.dataset.nota; if (i != null) st.fotos[+i].nota = ev.target.value; });
   $('btnTodoOk').onclick = function(){ document.querySelectorAll('#compCaja [data-seg] button[data-v=OK]').forEach(function(b){ b.click(); }); };
   $('btnTodoBueno').onclick = function(){ document.querySelectorAll('#itemsTorre [data-seg] button[data-v=BUENO]').forEach(function(b){ b.click(); }); };
 
@@ -223,7 +322,8 @@
     var p = { idEnvio: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), usuario: ses.usuario, pin: ses.pin, area: ses.area,
       elemento: st.elemento, fecha: $('fecha').value, grupo: $('grupo').value, supervisor: $('supervisor').value.trim(),
       tecnicos: [$('tec1').value.trim(), $('tec2').value.trim()].filter(Boolean), mant: $('mant').value, numero: $('numero').value.trim().toUpperCase(),
-      idMaestro: $('numero').dataset.id || '', tipo: $('tipo').value, circuito: $('circuito').value.trim(), lugar: $('lugar').value.trim() };
+      idMaestro: $('numero').dataset.id || '', tipo: $('tipo').value, circuito: $('circuito').value.trim(), lugar: $('lugar').value.trim(),
+      fallas: leerFallas(), fotos: st.fotos.slice() };
     if (st.elemento === 'CAJA'){
       p.comp = {};
       document.querySelectorAll('#compCaja [data-comp]').forEach(function(d){
@@ -249,6 +349,13 @@
     if (!p.tipo) return 'Elija el tipo.';
     if (!p.circuito && !p.lugar) return 'Escriba el circuito o el lugar.';
     var i, k;
+    if (p.fallas) for (i = 0; i < p.fallas.length; i++){
+      var fx = p.fallas[i], nom = fx.g === fx.it ? (I.compCaja.find(function(c){ return c[0] === fx.g; }) || [0, fx.g])[1] : fx.g.toLowerCase() + ' ' + fx.it.toLowerCase();
+      if (!fx.elem) return 'Elija el elemento que falló en: ' + nom + '.';
+      if (!fx.modo) return 'Elija el modo de falla de: ' + nom + '.';
+      var pen = document.querySelector('.falla[data-fg="' + fx.g.replace(/"/g, '') + '"][data-fit="' + fx.it.replace(/"/g, '') + '"] .fpen');
+      if (pen && !pen.classList.contains('hidden') && !fx.donde) return 'Diga dónde se repara: ' + nom + '.';
+    }
     if (p.elemento === 'CAJA'){
       for (i = 0; i < I.compCaja.length; i++){
         var c = p.comp[I.compCaja[i][0]], n = I.compCaja[i][1];
@@ -276,7 +383,8 @@
   $('btnEnviar').onclick = function(){
     var p = armar(), e = validar(p);
     if (e){ mostrar('err', esc(e)); return; }
-    var c = ls(K_COLA) || []; c.push({ p: p, error: '' }); ls(K_COLA, c);
+    var c = ls(K_COLA) || []; c.push({ p: p, error: '' });
+    if (!ls(K_COLA, c)){ mostrar('err', 'El celular no tiene espacio para guardar el reporte con las fotos. Quite algunas fotos o envíe con señal.'); return; }
     var t = ls(K_TURNO + '_' + ses.usuario) || {};
     t.grupo = p.grupo; t.supervisor = p.supervisor; t.tecnicos = p.tecnicos; ls(K_TURNO + '_' + ses.usuario, t);
     limpiar(); pintarCola();
@@ -287,6 +395,7 @@
     ['numero','circuito','lugar','adicionales','resena'].forEach(function(id){ $(id).value = ''; });
     $('mant').value = $('mant').value; $('tipo').value = ''; $('infoNum').textContent = '';
     if (st.elemento === 'CAJA') armarCaja(); else if (st.elemento === 'TORRE') armarTorre();
+    st.fotos = []; pintarFotos();
   }
   function procesarCola(){
     if (enviando || !gs() || !ses) return;

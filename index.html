@@ -64,6 +64,12 @@
   .item{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid var(--ln)}
   .item button{border:none;background:none;color:var(--err);font-size:13px}
   .hidden{display:none!important}
+  .seg.s4{grid-template-columns:repeat(4,1fr)}
+  .fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .fotos div{position:relative}
+  .fotos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block}
+  .fotos input{min-height:36px;padding:6px;font-size:13px;margin-top:4px}
+  .fotos button{position:absolute;top:4px;right:4px;border:none;border-radius:99px;background:#000a;color:#fff;width:28px;height:28px}
   .mut{color:var(--mut);font-size:13px}
 </style>
 <link rel="manifest" href="manifest.json">
@@ -162,14 +168,47 @@
     <p class="ayuda" id="ayTiempo"></p>
 
     <div id="bxFalla" class="bloque hidden">
-      <label for="componente">Componente que falló</label>
-      <select id="componente"></select>
-      <label for="modo">Modo de falla</label>
-      <select id="modo"></select>
+      <div id="bxTax" class="hidden">
+        <label>¿Qué falló?</label>
+        <div class="seg s4" id="taxComp"></div>
+        <div id="bxTaxDet" class="hidden">
+          <div id="bxTaxNum">
+            <label for="taxNum" id="lbTaxNum">Número</label>
+            <input id="taxNum" autocomplete="off" autocapitalize="characters" placeholder="Si no lo sabe escriba SIN NUMERO">
+          </div>
+          <div id="bxTaxRol" class="hidden">
+            <label for="taxRol">Rol del cable</label>
+            <select id="taxRol"></select>
+            <p class="ayuda" id="ayRol"></p>
+          </div>
+          <label for="taxElem" id="lbTaxElem">Elemento que falló</label>
+          <select id="taxElem"></select>
+          <div id="bxTaxPos" class="hidden">
+            <label for="taxPos" id="lbTaxPos">Posición</label>
+            <select id="taxPos"></select>
+            <input id="taxPosTxt" class="hidden" inputmode="decimal">
+          </div>
+          <div id="bxTaxModo">
+            <label for="taxModo">Modo de falla <span class="mut">(qué dejó de hacer)</span></label>
+            <select id="taxModo"></select>
+            <p class="ayuda" id="ayModo"></p>
+          </div>
+        </div>
+      </div>
+      <div id="bxFallaVieja">
+        <label for="componente">Componente que falló</label>
+        <select id="componente"></select>
+        <label for="modo">Modo de falla</label>
+        <select id="modo"></select>
+      </div>
     </div>
 
     <label for="descripcion">Descripción de la actividad</label>
     <textarea id="descripcion" placeholder="Paso a paso de lo que se hizo. Si hizo pruebas de aislamiento, escriba los resultados."></textarea>
+
+    <label>Fotos <span class="mut">(opcional: condición encontrada y reparación)</span></label>
+    <input id="fotoIn" type="file" accept="image/*" multiple>
+    <div class="fotos" id="fotos"></div>
 
     <div id="bxDown" class="bloque hidden">
       <label>Justificación <span class="mut">(puede marcar varias)</span></label>
@@ -233,7 +272,7 @@
   'use strict';
   var K_COLA = 'tar_cola', K_LISTAS = 'tar_listas_', K_SES = 'tar_sesion', K_TURNO = 'tar_turno', K_HECHAS = 'tar_hechas';
   var ses = null, L = null, enviando = false;
-  var st = { turno:'', clase:'', estado:'', cambioPlan:'', cableCola:'' };
+  var st = { turno:'', clase:'', estado:'', cambioPlan:'', cableCola:'', taxComp:'', fotos: [] };
   var NOM = { CABLE:'Cable', CAJA:'Caja', TORRE:'Torre' };
   var $ = function(id){ return document.getElementById(id); };
 
@@ -241,6 +280,7 @@
     try{
       if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; }
       if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v));
+      return true;
     }catch(e){ return null; }
   }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -318,12 +358,106 @@
     var elec = esElec();
     $('bxElec').classList.toggle('hidden', !elec);
     $('bxFalla').classList.toggle('hidden', !elec);
+    var hayTax = !!(L && L.tax);
+    $('bxTax').classList.toggle('hidden', !hayTax); $('bxFallaVieja').classList.toggle('hidden', hayTax);
     var vol = esVoladura();
     $('ayDesen').textContent = vol ? 'En voladura: hora en que producción entrega el equipo.' : '';
     $('ayEntrega').textContent = vol ? 'En voladura: hora en que se entrega el equipo desenergizado y se notifica a mantenimiento.' : '';
     calcTiempo();
   }
   $('tipo').addEventListener('change', pintarTipo);
+
+  /* ---------- falla: taxonomía v1.0 (componente > elemento > modo) ---------- */
+  function taxModos(){ return (L && L.tax && L.tax.modos || []).filter(function(x){ return x.c === st.taxComp; }); }
+  function pintarTaxComp(){
+    var C = L && L.tax ? L.tax.componentes : {};
+    $('taxComp').innerHTML = Object.keys(C).map(function(k){ return '<button type="button" data-v="' + k + '">' + esc(k === 'OTRO' ? 'Otro' : C[k].split(' ')[0]) + '</button>'; }).join('');
+    marcar('taxComp', st.taxComp);
+  }
+  $('taxComp').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    st.taxComp = b.dataset.v; marcar('taxComp', st.taxComp);
+    $('taxNum').value = ''; $('taxRol').value = ''; $('ayRol').textContent = '';
+    pintarTaxElem('');
+  });
+  function pintarTaxElem(v){
+    var otro = st.taxComp === 'OTRO';
+    $('bxTaxDet').classList.toggle('hidden', !st.taxComp);
+    $('bxTaxNum').classList.toggle('hidden', otro);
+    $('bxTaxRol').classList.toggle('hidden', st.taxComp !== 'CABLE');
+    $('lbTaxNum').textContent = 'Número ' + ({ CABLE: 'del cable', CAJA: 'de la caja', TORRE: 'de la torre' }[st.taxComp] || '');
+    $('taxNum').setAttribute('inputmode', st.taxComp === 'CABLE' ? 'numeric' : 'text');
+    $('taxRol').innerHTML = '<option value="">No sé / no aplica</option>' + (L.tax.roles || []).map(function(r){ return '<option>' + esc(r) + '</option>'; }).join('');
+    $('lbTaxElem').textContent = otro ? 'Qué falló' : 'Elemento que falló';
+    var h = '<option value="">Elija…</option>';
+    if (otro) h += (L.tax.otros || []).map(function(e){ return '<option>' + esc(e) + '</option>'; }).join('');
+    else {
+      var grupos = [], vistos = {};
+      taxModos().forEach(function(x){ if (vistos[x.e]) return; vistos[x.e] = 1; var g = grupos.find(function(y){ return y.s === x.s; }); if (!g) grupos.push(g = { s: x.s, e: [] }); g.e.push(x.e); });
+      h += grupos.map(function(g){ return '<optgroup label="' + esc(g.s) + '">' + g.e.map(function(e){ return '<option>' + esc(e) + '</option>'; }).join('') + '</optgroup>'; }).join('');
+    }
+    $('taxElem').innerHTML = h; $('taxElem').value = v || '';
+    pintarTaxModo();
+  }
+  function pintarTaxModo(vPos, vModo){
+    var el = $('taxElem').value, otro = st.taxComp === 'OTRO';
+    var ms = taxModos().filter(function(x){ return x.e === el; });
+    $('bxTaxModo').classList.toggle('hidden', otro || !el);
+    $('taxModo').innerHTML = '<option value="">Elija…</option>' + ms.map(function(x){ return '<option value="' + esc(x.m) + '">' + esc(x.n || x.m) + '</option>'; }).join('');
+    $('taxModo').value = vModo || (ms.length === 1 ? ms[0].m : '');
+    var p = ms.length ? String(ms[0].p || '') : '';
+    var txt = p.charAt(0) === '#';
+    $('bxTaxPos').classList.toggle('hidden', otro || !el || !p);
+    $('lbTaxPos').textContent = txt ? p.slice(1) : 'Posición';
+    $('taxPos').classList.toggle('hidden', txt); $('taxPosTxt').classList.toggle('hidden', !txt);
+    if (!txt) { $('taxPos').innerHTML = '<option value="">Elija…</option>' + p.split(' | ').filter(Boolean).map(function(x){ return '<option>' + esc(x) + '</option>'; }).join(''); $('taxPos').value = vPos || ''; }
+    else $('taxPosTxt').value = vPos || '';
+    pintarAyModo();
+  }
+  function pintarAyModo(){
+    var x = taxModos().find(function(y){ return y.e === $('taxElem').value && y.m === $('taxModo').value; });
+    $('ayModo').textContent = x ? 'Impacto: ' + x.imp + (x.n ? ' · ' + x.m : '') : '';
+  }
+  $('taxElem').addEventListener('change', function(){ pintarTaxModo(); });
+  $('taxModo').addEventListener('change', pintarAyModo);
+  $('taxNum').addEventListener('change', function(){
+    if (st.taxComp !== 'CABLE') return;
+    var n = norm($('taxNum').value), it = (L.items || []).find(function(i){ return i[1] === 'CABLE' && norm(i[3]) === n; });
+    if (!it){ $('ayRol').textContent = n ? 'No está en el inventario de esta mina.' : ''; return; }
+    var d = String(it[9] || ''), rol = /cola/i.test(d) ? 'Cola' : /tubo/i.test(d) ? 'Tubo' : /bajante/i.test(d) ? 'Bajante' : '';
+    if (rol && !$('taxRol').value) $('taxRol').value = rol;
+    $('ayRol').textContent = 'Inventario: ' + [it[5], it[6]].filter(Boolean).join(' · ') + (d ? ' (' + d + ')' : '');
+  });
+  function leerTax(){
+    if (!esElec() || !(L && L.tax) || !st.taxComp) return null;
+    var txt = !$('taxPosTxt').classList.contains('hidden');
+    return { comp: st.taxComp, num: $('taxNum').value.trim().toUpperCase(), rol: $('taxRol').value, elem: $('taxElem').value,
+      pos: st.taxComp === 'OTRO' ? '' : (txt ? $('taxPosTxt').value.trim() : $('taxPos').value), modo: st.taxComp === 'OTRO' ? '' : $('taxModo').value };
+  }
+
+  /* ---------- fotos (se achican antes de guardarlas) ---------- */
+  $('fotoIn').addEventListener('change', function(){
+    var files = Array.prototype.slice.call(this.files || []); this.value = '';
+    var max = (L && L.maxFotos) || 6, cupo = max - st.fotos.length;
+    if (files.length > cupo) mostrar('warn', 'Máximo ' + max + ' fotos por tarea. Se agregan ' + Math.max(cupo, 0) + '.');
+    files.slice(0, Math.max(cupo, 0)).forEach(function(f){ achicar(f, function(b64){ st.fotos.push({ b64: b64, nota: '' }); pintarFotos(); }); });
+  });
+  function achicar(file, cb){
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function(){
+      var k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      cb(c.toDataURL('image/jpeg', 0.6));
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); mostrar('err', 'No se pudo leer una foto.'); };
+    img.src = url;
+  }
+  function pintarFotos(){
+    $('fotos').innerHTML = st.fotos.map(function(f, i){ return '<div><img src="' + f.b64 + '" alt=""><button type="button" data-i="' + i + '">✕</button><input data-nota="' + i + '" placeholder="Nota" value="' + esc(f.nota) + '"></div>'; }).join('');
+  }
+  $('fotos').addEventListener('click', function(ev){ var b = ev.target.closest('button[data-i]'); if (!b) return; st.fotos.splice(+b.dataset.i, 1); pintarFotos(); });
+  $('fotos').addEventListener('input', function(ev){ var i = ev.target.dataset.nota; if (i != null) st.fotos[+i].nota = ev.target.value; });
 
   /* ---------- cables, cajas y torres ---------- */
   function filaComp(cont, el, retiro){
@@ -456,7 +590,8 @@
       estado: st.estado, descripcion: $('descripcion').value.trim(),
       hParada: esElec() ? $('hParada').value : '', hInicio: $('hInicio').value,
       hDesen: st.clase === 'DOWN' ? $('hDesen').value : '', hEntrega: st.clase === 'DOWN' ? $('hEntrega').value : '', hFin: $('hFin').value,
-      componente: esElec() ? $('componente').value : '', modo: esElec() ? $('modo').value : '',
+      componente: esElec() && !(L && L.tax) ? $('componente').value : '', modo: esElec() && !(L && L.tax) ? $('modo').value : '',
+      tax: leerTax(), fotos: st.fotos.slice(),
       justificaciones: st.clase === 'DOWN' ? chipsSel('justificaciones') : [],
       lineaTiempo: st.clase === 'DOWN' ? $('lineaTiempo').value.trim() : '',
       cambioPlan: st.clase === 'DOWN' ? st.cambioPlan : '', descCambio: $('descCambio').value.trim(), minCambio: $('minCambio').value.trim(),
@@ -483,8 +618,17 @@
       var x = absMin(p[ord[i][0]]), y = absMin(p[ord[i][1]]);
       if (x != null && y != null && y < x) return 'Revise las horas: ' + ord[i][2] + '.';
     }
-    if (elec && fin && !p.componente) return 'Elija el componente que falló.';
-    if (elec && fin && !p.modo) return 'Elija el modo de falla.';
+    if (elec && fin && L && L.tax){
+      var t = p.tax;
+      if (!t) return 'Diga qué falló: cable, caja, torre u otro.';
+      if (t.comp !== 'OTRO' && !t.num) return 'Escriba el número (si no lo sabe escriba SIN NUMERO).';
+      if (!t.elem) return t.comp === 'OTRO' ? 'Elija qué falló.' : 'Elija el elemento que falló.';
+      if (t.comp !== 'OTRO' && !t.modo) return 'Elija el modo de falla.';
+      if (t.comp !== 'OTRO' && !$('bxTaxPos').classList.contains('hidden') && !t.pos) return 'Elija la posición (' + $('lbTaxPos').textContent + ').';
+    } else {
+      if (elec && fin && !p.componente) return 'Elija el componente que falló.';
+      if (elec && fin && !p.modo) return 'Elija el modo de falla.';
+    }
     if (!p.descripcion) return 'Escriba la descripción de la actividad.';
     if (down && !p.cambioPlan) return 'Diga si hubo demora por cambio de plan.';
     if (down && p.cambioPlan === 'Si' && !p.descCambio) return 'Describa el cambio de plan.';
@@ -502,7 +646,8 @@
   $('btnEnviar').onclick = function(){
     var p = armar(), e = validar(p);
     if (e){ mostrar('err', esc(e)); return; }
-    var cola = ls(K_COLA) || []; cola.push({ p: p, error: '' }); ls(K_COLA, cola);
+    var cola = ls(K_COLA) || []; cola.push({ p: p, error: '' });
+    if (!ls(K_COLA, cola)){ mostrar('err', 'El celular no tiene espacio para guardar la tarea con las fotos. Quite algunas fotos o envíe con señal.'); return; }
     limpiarTarea();
     pintarCola();
     mostrar('warn', (navigator.onLine && gs()) ? 'Enviando: ' + esc(resumenTxt(p)) + '…' : 'Sin señal. Quedó guardada y se envía sola cuando haya cobertura.');
@@ -562,6 +707,8 @@
     ['equipo','circuito','descripcion','hParada','hInicio','hDesen','hEntrega','hFin','lineaTiempo','descCambio','minCambio','inspeccionCola','destinoRetiro']
       .forEach(function(id){ $(id).value = ''; });
     $('componente').value = ''; $('modo').value = '';
+    st.taxComp = ''; marcar('taxComp', ''); $('taxNum').value = ''; $('ayRol').textContent = ''; $('bxTaxDet').classList.add('hidden');
+    st.fotos = []; pintarFotos();
     chipsMarcar('justificaciones', []);
     $('agregados').innerHTML = ''; $('retirados').innerHTML = '';
     $('bxCambio').classList.add('hidden'); $('bxCola').classList.add('hidden');
@@ -598,6 +745,7 @@
     var c = $('componente').value, m = $('modo').value;
     opciones('componente', x.componentes, 'Elija…'); opciones('modo', x.modos, 'Elija…');
     $('componente').value = c; $('modo').value = m;
+    if (x.tax){ pintarTaxComp(); if (st.taxComp) pintarTaxElem($('taxElem').value); }
     pintarClase();
   }
   function cargarListas(){

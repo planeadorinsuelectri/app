@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Mantenimiento de cables</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#d1d5db;
+    --acc:#d97706; --acc2:#fef3c7; --ok:#15803d; --okbg:#dcfce7; --err:#b91c1c; --errbg:#fee2e2; --warn:#92400e; --warnbg:#fef3c7;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2f343e;
+      --acc:#f59e0b; --acc2:#3a2a0a; --ok:#4ade80; --okbg:#0f2a19; --err:#f87171; --errbg:#2c1212; --warn:#fbbf24; --warnbg:#2c220c; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:#1f2937;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:8px}
+  header h1{font-size:17px;margin:0;flex:1;line-height:1.2}
+  header small{display:block;font-weight:400;color:#d1d5db;font-size:12px}
+  .net{font-size:12px;padding:3px 8px;border-radius:99px;background:#374151;white-space:nowrap;color:#fff;text-decoration:none}
+  .net.on{background:#166534}.net.off{background:#991b1b}
+  main{max-width:560px;margin:0 auto;padding:12px 12px 120px}
+  .card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+  label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
+  input,select,textarea{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:12px;min-height:48px}
+  textarea{min-height:70px;resize:vertical}
+  .seg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .seg.s3{grid-template-columns:repeat(3,1fr)} .seg.s4{grid-template-columns:repeat(4,1fr)}
+  .seg button{min-height:46px;border:1px solid var(--ln);background:var(--bg);color:var(--tx);border-radius:10px;font:600 14px system-ui,sans-serif;padding:4px;cursor:pointer}
+  .seg button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .seg button.sel[data-v=OK],.seg button.sel[data-v=BUENO]{background:var(--ok);border-color:var(--ok);color:#fff}
+  .seg button.sel[data-v=REPORTE],.seg button.sel[data-v="SE REEMPLAZA"]{background:var(--err);border-color:var(--err);color:#fff}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .item{border-top:1px solid var(--ln);padding:10px 0}
+  .item b{display:block;font-size:14px;margin-bottom:6px}
+  .info{font-size:13px;color:var(--mut);margin:6px 0 0}
+  .info.warn{color:var(--warn)}
+  .add{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .add button{flex:1;min-height:44px;border:1px solid var(--ln);border-radius:8px;background:transparent;color:var(--tx);font:600 14px system-ui,sans-serif}
+  .send{position:fixed;left:0;right:0;bottom:0;padding:12px;background:var(--card);border-top:1px solid var(--ln)}
+  .send button{display:block;width:100%;max-width:560px;margin:0 auto;min-height:56px;border:none;border-radius:12px;background:var(--acc);color:#111;font:700 18px system-ui,sans-serif}
+  .msg{border-radius:10px;padding:12px;margin-bottom:12px;font-size:14px}
+  .msg.ok{background:var(--okbg);color:var(--ok)} .msg.err{background:var(--errbg);color:var(--err)} .msg.warn{background:var(--warnbg);color:var(--warn)}
+  .fila{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid var(--ln)}
+  .fila button{border:none;background:none;color:var(--err);font-size:13px}
+  .lnk{background:none;border:none;color:var(--acc);text-decoration:underline;font:inherit;font-size:13px;padding:0 4px}
+  .hidden{display:none!important}
+  .falla{border-left:4px solid var(--warn);padding:2px 0 2px 10px;margin-top:8px}
+  .falla label{margin-top:8px}
+  .fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .fotos div{position:relative}
+  .fotos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block}
+  .fotos input{min-height:36px;padding:6px;font-size:13px;margin-top:4px}
+  .fotos button{position:absolute;top:4px;right:4px;border:none;border-radius:99px;background:#000a;color:#fff;width:28px;height:28px}
+  .mut{color:var(--mut);font-size:13px}
+  .hall{border:1px solid var(--ln);border-radius:10px;padding:4px 10px 10px;margin-top:10px;position:relative}
+  .hall .quitar{position:absolute;top:6px;right:6px;border:none;background:none;color:var(--err);font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chips button{min-height:44px;padding:8px 12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);color:var(--tx);font:600 13px system-ui,sans-serif}
+  .chips button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>Mantenimiento de cables<small id="sub">Cargando…</small></h1>
+  <a id="lnkTar" class="net" target="_top" hidden>Tareas</a>
+  <span id="net" class="net">…</span>
+</header>
+<main>
+  <div id="resultado"></div>
+
+  <section class="card" id="cardCola" hidden>
+    <h2>Pendientes por enviar</h2>
+    <p class="mut">Se envían solos cuando haya señal. No cierre esta pestaña.</p>
+    <div id="cola"></div>
+  </section>
+
+  <section class="card" id="cardIngreso">
+    <h2>Ingreso</h2>
+    <label for="areaSel" style="margin-top:0">PIT / mina</label>
+    <select id="areaSel"><option value="">Cargando…</option></select>
+    <label for="usuario">Usuario</label>
+    <input id="usuario" list="dlUsuarios" autocomplete="off">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <div class="add" style="margin-top:12px"><button type="button" id="btnIngresar">Ingresar</button></div>
+  </section>
+
+  <section class="card hidden" id="cardDatos">
+    <h2>Datos del reporte</h2>
+    <p class="mut" style="margin:0">Reporta: <b id="lblUsuario"></b> · <span id="lblArea"></span> <button type="button" class="lnk" id="btnSalir">salir</button></p>
+    <div class="row2">
+      <div><label for="fecha">Fecha</label><input id="fecha" type="date"></div>
+      <div><label for="grupo">Grupo</label><select id="grupo"><option value="">…</option><option>1</option><option>2</option><option>3</option></select></div>
+    </div>
+    <label for="supervisor">Supervisor</label>
+    <input id="supervisor" list="dlSup" autocomplete="off">
+    <label>Técnicos</label>
+    <div class="row2"><input id="tec1" list="dlTec" autocomplete="off" placeholder="Técnico 1"><input id="tec2" list="dlTec" autocomplete="off" placeholder="Técnico 2"></div>
+  </section>
+
+  <section class="card hidden" id="cardCable">
+    <h2>Cable</h2>
+    <div class="row2">
+      <div><label for="numero" style="margin-top:0">Número del cable</label><input id="numero" inputmode="numeric" autocomplete="off"></div>
+      <div><label for="rol" style="margin-top:0">Rol</label><select id="rol"></select></div>
+    </div>
+    <p class="info" id="infoNum"></p>
+    <label for="donde">Dónde se hizo</label>
+    <select id="donde"><option value="">Elija…</option><option>En el circuito</option><option>Patio / acopio</option><option>Taller</option></select>
+    <label for="lugar">Circuito, patio o lugar</label>
+    <input id="lugar" list="dlCircuitos" autocomplete="off">
+    <label>Qué se hizo <span class="mut">(puede marcar varias)</span></label>
+    <div class="chips" id="actividades"></div>
+    <div id="bxAisl" class="hidden">
+      <label>Prueba de aislamiento (megger)</label>
+      <div class="row2"><div><label for="kv" style="margin-top:0">Tensión de prueba (kV)</label><input id="kv" inputmode="decimal"></div><div><label for="unidad" style="margin-top:0">Unidad</label><select id="unidad"><option>MΩ</option><option>GΩ</option></select></div></div>
+      <div class="row3"><div><label>Fase A</label><input id="aA" inputmode="decimal"></div><div><label>Fase B</label><input id="aB" inputmode="decimal"></div><div><label>Fase C</label><input id="aC" inputmode="decimal"></div></div>
+    </div>
+    <div id="bxCont" class="hidden"><label>Prueba de continuidad</label><div class="seg" id="cont" data-seg="cont"><button type="button" data-v="OK">OK</button><button type="button" data-v="REPORTE">FALLA</button></div></div>
+    <div id="bxInter" class="hidden"><label>Prueba de intermitencia</label><div class="seg" id="inter" data-seg="inter"><button type="button" data-v="OK">OK</button><button type="button" data-v="REPORTE">FALLA</button></div></div>
+    <label>¿Cómo queda el cable?</label>
+    <div class="seg" id="res" data-seg="res"><button type="button" data-v="OK">APTO</button><button type="button" data-v="REPORTE">NO APTO</button></div>
+  </section>
+
+  <section class="card hidden" id="cardHall">
+    <h2>Hallazgos</h2>
+    <p class="info" style="margin-top:0">Agregue uno por cada daño encontrado. Si todo estaba bien, déjelo vacío.</p>
+    <div id="halls"></div>
+    <div class="add"><button type="button" id="btnHall">+ Agregar hallazgo</button></div>
+    <label for="obs">Observaciones</label>
+    <textarea id="obs" placeholder="Qué se hizo, valores medidos, recomendaciones"></textarea>
+  </section>
+
+  <section class="card hidden" id="cardFotos">
+    <h2>Fotos <span style="text-transform:none;letter-spacing:0">(opcional)</span></h2>
+    <p class="info" style="margin-top:0">Condición encontrada y reparación: es el soporte para analizar la falla.</p>
+    <input id="fotoIn" type="file" accept="image/*" multiple>
+    <div class="fotos" id="fotos"></div>
+  </section>
+
+  <section class="card hidden" id="cardHechos">
+    <h2>Enviados hoy</h2>
+    <div id="hechos"></div>
+  </section>
+</main>
+<div class="send hidden" id="barEnviar"><button id="btnEnviar" type="button">Enviar reporte</button></div>
+
+<datalist id="dlUsuarios"></datalist><datalist id="dlSup"></datalist><datalist id="dlTec"></datalist><datalist id="dlCircuitos"></datalist>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var K_COLA = 'cab_cola', K_SES = 'tar_sesion', K_LISTAS = 'tar_listas_', K_TURNO = 'tar_turno', K_INI = 'cab_inicio', K_HECHOS = 'cab_hechos';
+  var ses = null, L = null, I = null, enviando = false;
+  var st = { fotos: [], hechos: [], res: '' };
+  var $ = function(id){ return document.getElementById(id); };
+  function ls(k, v){ try{ if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; } if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return null; } }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function gs(){ return (typeof google !== 'undefined' && google.script && google.script.run) ? google.script.run : null; }
+  function norm(n){ return String(n == null ? '' : n).toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(^|[A-Z])0+(?=\d)/g, '$1'); }
+  function nI(s){ return String(s || '').toUpperCase().replace(/\s+/g, ' ').trim(); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function hoy(){ var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function mostrar(t, h){ $('resultado').innerHTML = '<div class="msg ' + t + '">' + h + '</div>'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function datalist(id, arr){ $(id).innerHTML = (arr || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); }
+  function opciones(id, arr){ $(id).innerHTML = '<option value="">Elija…</option>' + (arr || []).map(function(v){ return '<option>' + esc(v) + '</option>'; }).join(''); }
+  function segHtml(nombre, estados, sel){ return '<div class="seg s' + estados.length + '" data-seg="' + esc(nombre) + '">' + estados.map(function(e){ return '<button type="button" data-v="' + esc(e) + '"' + (e === sel ? ' class="sel"' : '') + '>' + esc(e === 'REPARACION' ? 'REPARADO' : e) + '</button>'; }).join('') + '</div>'; }
+  function segVal(el){ var b = el.querySelector('button.sel'); return b ? b.dataset.v : ''; }
+
+
+  /* ---------- qué se hizo ---------- */
+  var ACTS = ['Inspección visual', 'Prueba de aislamiento', 'Prueba de continuidad', 'Prueba de intermitencia', 'Reparación'];
+  function pintarHechosTipos(){
+    $('actividades').innerHTML = ACTS.map(function(a){ return '<button type="button" data-v="' + esc(a) + '"' + (st.hechos.indexOf(a) >= 0 ? ' class="sel"' : '') + '>' + esc(a) + '</button>'; }).join('');
+    $('rol').innerHTML = '<option value="">No sé</option>' + ((I && I.tax && I.tax.roles) || []).map(function(r){ return '<option>' + esc(r) + '</option>'; }).join('');
+    pintarPruebas();
+  }
+  $('actividades').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    var i = st.hechos.indexOf(b.dataset.v); if (i >= 0) st.hechos.splice(i, 1); else st.hechos.push(b.dataset.v);
+    b.classList.toggle('sel', i < 0); pintarPruebas();
+  });
+  function pintarPruebas(){
+    $('bxAisl').classList.toggle('hidden', st.hechos.indexOf('Prueba de aislamiento') < 0);
+    $('bxCont').classList.toggle('hidden', st.hechos.indexOf('Prueba de continuidad') < 0);
+    $('bxInter').classList.toggle('hidden', st.hechos.indexOf('Prueba de intermitencia') < 0);
+  }
+  document.addEventListener('click', function(ev){
+    var b = ev.target.closest('[data-seg] button'); if (!b) return;
+    Array.prototype.forEach.call(b.parentNode.children, function(x){ x.classList.toggle('sel', x === b); });
+  });
+
+  /* número: busca en el inventario de la mina */
+  $('numero').addEventListener('change', verificarNum);
+  function verificarNum(){
+    var inp = $('numero'); inp.value = inp.value.trim().toUpperCase(); inp.dataset.id = '';
+    var info = $('infoNum'); info.className = 'info'; info.textContent = '';
+    if (!inp.value || !L) return;
+    var k = norm(inp.value), m = (L.items || []).filter(function(x){ return x[1] === 'CABLE' && x[7] !== 'De baja' && norm(x[3]) === k; });
+    if (!m.length){ info.className = 'info warn'; info.textContent = 'No está en el inventario. Se registra igual.'; return; }
+    var x = m[0]; inp.dataset.id = x[0];
+    info.textContent = 'Inventario: ' + [x[4], x[7], x[5], x[6]].filter(Boolean).join(' · ');
+    var d = String(x[9] || ''), rol = /cola/i.test(d) ? 'Cola' : /tubo/i.test(d) ? 'Tubo' : /bajante/i.test(d) ? 'Bajante' : '';
+    if (rol && !$('rol').value) $('rol').value = rol;
+    if (!$('lugar').value && x[5]) $('lugar').value = x[5];
+    if (!$('donde').value) $('donde').value = x[7] === 'Instalado' ? 'En el circuito' : 'Patio / acopio';
+  }
+
+  /* ---------- hallazgos (taxonomía v1.0 del cable) ---------- */
+  function modosCable(){ return (I && I.tax && I.tax.modos || []).filter(function(x){ return x.c === 'CABLE'; }); }
+  $('btnHall').onclick = function(){ agregarHall(); };
+  function agregarHall(){
+    var ms = modosCable(), grupos = [];
+    ms.forEach(function(x){ var g = grupos.find(function(y){ return y.s === x.s; }); if (!g) grupos.push(g = { s: x.s, e: [] }); if (g.e.indexOf(x.e) < 0) g.e.push(x.e); });
+    var d = document.createElement('div'); d.className = 'hall';
+    d.innerHTML = '<button type="button" class="quitar">Quitar</button>' +
+      '<label>Elemento</label><select class="he"><option value="">Elija…</option>' + grupos.map(function(g){ return '<optgroup label="' + esc(g.s) + '">' + g.e.map(function(e){ return '<option>' + esc(e) + '</option>'; }).join('') + '</optgroup>'; }).join('') + '</select>' +
+      '<div class="hposb hidden"><label class="hposl">Posición</label><select class="hp"></select><input class="hpt hidden" inputmode="decimal"></div>' +
+      '<label>Modo de falla <span class="mut">(qué dejó de hacer)</span></label><select class="hm"><option value="">Elija…</option></select><p class="info himp"></p>' +
+      '<label>Actividad</label><select class="ha"><option value="">Elija…</option>' + ((I.tax.cat || {}).ACTIVIDAD || []).map(function(a){ return '<option>' + esc(a) + '</option>'; }).join('') + '</select>' +
+      '<label>¿Quedó corregido?</label><div class="seg hc" data-seg="hc"><button type="button" data-v="OK">SÍ</button><button type="button" data-v="REPORTE">NO, PENDIENTE</button></div>' +
+      '<div class="hpen hidden"><label>Material que requiere</label><input class="hmat" placeholder="Ej: kit de empalme 3M, 2 posipines 7/8&quot;">' +
+      '<label>¿Dónde se repara?</label><select class="hdo"><option value="">Elija…</option>' + ((I && I.dondeRepara) || []).map(function(x){ return '<option>' + esc(x) + '</option>'; }).join('') + '</select></div>';
+    $('halls').appendChild(d);
+  }
+  $('halls').addEventListener('click', function(ev){
+    var h = ev.target.closest('.hall'); if (!h) return;
+    if (ev.target.classList.contains('quitar')){ h.remove(); return; }
+    var b = ev.target.closest('.hc button'); if (b) h.querySelector('.hpen').classList.toggle('hidden', b.dataset.v !== 'REPORTE');
+  });
+  $('halls').addEventListener('change', function(ev){
+    var h = ev.target.closest('.hall'); if (!h) return;
+    if (ev.target.classList.contains('he')){
+      var ms = modosCable().filter(function(x){ return x.e === ev.target.value; });
+      h.querySelector('.hm').innerHTML = '<option value="">Elija…</option>' + ms.map(function(x){ return '<option value="' + esc(x.m) + '">' + esc(x.n || x.m) + '</option>'; }).join('');
+      if (ms.length === 1) h.querySelector('.hm').value = ms[0].m;
+      var p = ms.length ? String(ms[0].p || '') : '', txtP = p.charAt(0) === '#';
+      h.querySelector('.hposb').classList.toggle('hidden', !p);
+      h.querySelector('.hposl').textContent = txtP ? p.slice(1) : 'Posición';
+      h.querySelector('.hp').classList.toggle('hidden', txtP); h.querySelector('.hpt').classList.toggle('hidden', !txtP);
+      h.querySelector('.hp').innerHTML = '<option value="">Elija…</option>' + (txtP ? '' : p.split(' | ').filter(Boolean).map(function(x){ return '<option>' + esc(x) + '</option>'; }).join(''));
+    }
+    var x = modosCable().find(function(y){ return y.e === h.querySelector('.he').value && y.m === h.querySelector('.hm').value; });
+    h.querySelector('.himp').textContent = x ? 'Impacto: ' + x.imp + (x.n ? ' · ' + x.m : '') : '';
+    if (x && !h.querySelector('.ha').value) h.querySelector('.ha').value = String(x.act || '').split(' | ')[0];
+  });
+  function leerHalls(){
+    return Array.prototype.map.call(document.querySelectorAll('#halls .hall'), function(h){
+      var txtP = !h.querySelector('.hpt').classList.contains('hidden');
+      return { elem: h.querySelector('.he').value, pos: txtP ? h.querySelector('.hpt').value.trim() : h.querySelector('.hp').value, modo: h.querySelector('.hm').value,
+        act: h.querySelector('.ha').value, corregido: segVal(h.querySelector('.hc')) === 'OK' ? 'SI' : segVal(h.querySelector('.hc')) ? 'NO' : '',
+        material: h.querySelector('.hmat').value.trim(), donde: h.querySelector('.hdo').value, posVisible: !h.querySelector('.hposb').classList.contains('hidden') };
+    });
+  }
+
+  /* ---------- fotos (se achican antes de guardarlas) ---------- */
+  $('fotoIn').addEventListener('change', function(){
+    var files = Array.prototype.slice.call(this.files || []); this.value = '';
+    var max = (I && I.maxFotos) || 6, cupo = max - st.fotos.length;
+    if (files.length > cupo) mostrar('warn', 'Máximo ' + max + ' fotos por reporte. Se agregan ' + Math.max(cupo, 0) + '.');
+    files.slice(0, Math.max(cupo, 0)).forEach(function(f){ achicar(f, function(b64){ st.fotos.push({ b64: b64, nota: '' }); pintarFotos(); }); });
+  });
+  function achicar(file, cb){
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function(){
+      var k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      cb(c.toDataURL('image/jpeg', 0.6));
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); mostrar('err', 'No se pudo leer una foto.'); };
+    img.src = url;
+  }
+  function pintarFotos(){
+    $('fotos').innerHTML = st.fotos.map(function(f, i){ return '<div><img src="' + f.b64 + '" alt=""><button type="button" data-i="' + i + '">✕</button><input data-nota="' + i + '" placeholder="Nota" value="' + esc(f.nota) + '"></div>'; }).join('');
+  }
+  $('fotos').addEventListener('click', function(ev){ var b = ev.target.closest('button[data-i]'); if (!b) return; st.fotos.splice(+b.dataset.i, 1); pintarFotos(); });
+  $('fotos').addEventListener('input', function(ev){ var i = ev.target.dataset.nota; if (i != null) st.fotos[+i].nota = ev.target.value; });
+
+  /* ---------- armar, validar y enviar ---------- */
+  function armar(){
+    return { idEnvio: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), usuario: ses.usuario, pin: ses.pin, area: ses.area,
+      fecha: $('fecha').value, grupo: $('grupo').value, supervisor: $('supervisor').value.trim(),
+      tecnicos: [$('tec1').value.trim(), $('tec2').value.trim()].filter(Boolean),
+      numero: $('numero').value.trim().toUpperCase(), idMaestro: $('numero').dataset.id || '', rol: $('rol').value,
+      donde: $('donde').value, lugar: $('lugar').value.trim(), actividades: st.hechos.slice(),
+      kv: $('kv').value.trim(), unidad: $('unidad').value, aA: $('aA').value.trim(), aB: $('aB').value.trim(), aC: $('aC').value.trim(),
+      continuidad: segVal($('cont')), intermitencia: segVal($('inter')), resultado: segVal($('res')),
+      hallazgos: leerHalls(), observaciones: $('obs').value.trim(), fotos: st.fotos.slice() };
+  }
+  function validar(p){
+    if (!p.fecha) return 'Falta la fecha.';
+    if (!p.grupo) return 'Falta el grupo.';
+    if (!p.supervisor) return 'Falta el supervisor.';
+    if (!p.tecnicos.length) return 'Faltan los técnicos.';
+    if (!p.numero) return 'Falta el número del cable.';
+    if (!p.donde) return 'Diga dónde se hizo.';
+    if (!p.actividades.length) return 'Marque qué se hizo.';
+    var num = function(v){ return /^\d+([.,]\d+)?$/.test(v); };
+    if (p.actividades.indexOf('Prueba de aislamiento') >= 0 && (!num(p.aA) || !num(p.aB) || !num(p.aC))) return 'Escriba el valor de aislamiento de las tres fases (solo números).';
+    if (p.actividades.indexOf('Prueba de continuidad') >= 0 && !p.continuidad) return 'Diga el resultado de la prueba de continuidad.';
+    if (p.actividades.indexOf('Prueba de intermitencia') >= 0 && !p.intermitencia) return 'Diga el resultado de la prueba de intermitencia.';
+    if (!p.resultado) return 'Diga cómo queda el cable: apto o no apto.';
+    for (var i = 0; i < p.hallazgos.length; i++){
+      var h = p.hallazgos[i], n = 'hallazgo ' + (i + 1);
+      if (!h.elem) return 'Elija el elemento del ' + n + '.';
+      if (!h.modo) return 'Elija el modo de falla del ' + n + '.';
+      if (h.posVisible && !h.pos) return 'Escriba la posición del ' + n + '.';
+      if (!h.corregido) return 'Diga si quedó corregido el ' + n + '.';
+      if (h.corregido === 'NO' && !h.donde) return 'Diga dónde se repara el ' + n + '.';
+    }
+    if (p.resultado === 'REPORTE' && !p.hallazgos.length && !p.observaciones) return 'Si el cable queda no apto, agregue el hallazgo o escriba la observación.';
+    return '';
+  }
+  function txt(p){ return 'Cable ' + p.numero + ' · ' + (p.actividades || []).join(', '); }
+  $('btnEnviar').onclick = function(){
+    var p = armar(), e = validar(p);
+    if (e){ mostrar('err', esc(e)); return; }
+    var c = ls(K_COLA) || []; c.push({ p: p, error: '' });
+    if (!ls(K_COLA, c)){ mostrar('err', 'El celular no tiene espacio para guardar el reporte con las fotos. Quite algunas fotos o envíe con señal.'); return; }
+    var t = ls(K_TURNO + '_' + ses.usuario) || {};
+    t.grupo = p.grupo; t.supervisor = p.supervisor; t.tecnicos = p.tecnicos; ls(K_TURNO + '_' + ses.usuario, t);
+    limpiar(); pintarCola();
+    mostrar('warn', (navigator.onLine && gs()) ? 'Enviando: ' + esc(txt(p)) + '…' : 'Sin señal. Quedó guardado y se envía solo cuando haya cobertura.');
+    procesarCola();
+  };
+  function limpiar(){
+    ['numero','lugar','kv','aA','aB','aC','obs'].forEach(function(id){ $(id).value = ''; });
+    $('donde').value = ''; $('rol').value = ''; $('infoNum').textContent = ''; $('halls').innerHTML = '';
+    ['cont','inter','res'].forEach(function(id){ Array.prototype.forEach.call($(id).children, function(x){ x.classList.remove('sel'); }); });
+    st.hechos = []; pintarHechosTipos(); st.fotos = []; pintarFotos();
+  }
+
+  function procesarCola(){
+    if (enviando || !gs() || !ses) return;
+    var c = ls(K_COLA) || [], i = c.findIndex(function(x){ return !x.error; });
+    if (i < 0) return;
+    enviando = true; var item = c[i];
+    gs().withSuccessHandler(function(r){
+      enviando = false;
+      var c2 = ls(K_COLA) || [], j = c2.findIndex(function(x){ return x.p.idEnvio === item.p.idEnvio; });
+      if (r && r.ok){
+        if (j >= 0) c2.splice(j, 1); ls(K_COLA, c2);
+        var h = ls(K_HECHOS) || []; h = h.filter(function(x){ return x.fecha === hoy(); }); h.push({ fecha: hoy(), txt: txt(item.p) }); ls(K_HECHOS, h);
+        mostrar('ok', '<b>Registrado:</b> ' + esc((r.mensajes || []).join(' · ')));
+        pintarHechos();
+      } else {
+        if (j >= 0){ c2[j].error = (r && r.error) || 'Error'; ls(K_COLA, c2); }
+        mostrar('err', 'No se registró: ' + esc((r && r.error) || 'Error') + '. Borre el pendiente y envíelo de nuevo corregido.');
+      }
+      pintarCola(); procesarCola();
+    }).withFailureHandler(function(){ enviando = false; pintarCola(); }).registrarMantCable(item.p);
+  }
+  function pintarCola(){
+    var c = ls(K_COLA) || [];
+    $('cardCola').hidden = !c.length;
+    $('cola').innerHTML = c.map(function(x, i){ return '<div class="fila"><span>' + esc(txt(x.p)) + (x.error ? '<br><b style="color:var(--err)">' + esc(x.error) + '</b>' : '') + '</span><button type="button" data-i="' + i + '">Borrar</button></div>'; }).join('');
+    $('cola').querySelectorAll('button').forEach(function(b){ b.onclick = function(){ if (!confirm('¿Borrar este reporte sin enviarlo?')) return; var c2 = ls(K_COLA) || []; c2.splice(+b.dataset.i, 1); ls(K_COLA, c2); pintarCola(); }; });
+  }
+  function pintarHechos(){
+    var h = (ls(K_HECHOS) || []).filter(function(x){ return x.fecha === hoy(); });
+    $('cardHechos').classList.toggle('hidden', !h.length || !ses);
+    $('hechos').innerHTML = h.map(function(x){ return '<div class="fila"><span>' + esc(x.txt) + '</span></div>'; }).join('');
+  }
+
+  /* ---------- señal ---------- */
+  function pintarRed(){ var on = navigator.onLine; $('net').textContent = on ? 'Con señal' : 'Sin señal'; $('net').className = 'net ' + (on ? 'on' : 'off'); if (on) procesarCola(); }
+  window.addEventListener('online', pintarRed); window.addEventListener('offline', pintarRed); setInterval(procesarCola, 20000);
+
+  /* ---------- listas e ingreso (usa la misma sesión de Tareas) ---------- */
+  function aplicarListas(x){
+    if (!x) return; L = x;
+    $('sub').textContent = x.area + ' · ' + (x.nombreMina || '');
+    datalist('dlSup', x.supervisores); datalist('dlTec', x.tecnicos); datalist('dlCircuitos', x.circuitos);
+  }
+  function cargarListas(){
+    if (!gs() || !ses) return;
+    gs().withSuccessHandler(function(x){ if (!x || !x.ok){ if (x && /PIN/.test(x.error)) salir(x.error); return; } ls(K_LISTAS + ses.area, x); aplicarListas(x); })
+      .withFailureHandler(function(){}).getListasTareas(ses.usuario, ses.pin, ses.area);
+  }
+  function mostrarSesion(){
+    var on = !!ses;
+    $('cardIngreso').classList.toggle('hidden', on);
+    ['cardDatos','cardCable','cardHall','cardFotos'].forEach(function(id){ $(id).classList.toggle('hidden', !on); });
+    if (!on){ ['barEnviar','cardHechos'].forEach(function(id){ $(id).classList.add('hidden'); }); return; }
+    $('lblUsuario').textContent = ses.usuario; $('lblArea').textContent = ses.area;
+    aplicarListas(ls(K_LISTAS + ses.area));
+    var t = ls(K_TURNO + '_' + ses.usuario) || {};
+    $('fecha').value = $('fecha').value || hoy(); $('grupo').value = t.grupo || $('grupo').value;
+    $('supervisor').value = $('supervisor').value || t.supervisor || '';
+    $('tec1').value = $('tec1').value || (t.tecnicos || [])[0] || ''; $('tec2').value = $('tec2').value || (t.tecnicos || [])[1] || '';
+    $('barEnviar').classList.remove('hidden'); pintarHechos();
+  }
+  function salir(msg){ ses = null; ls(K_SES, null); mostrarSesion(); if (msg) mostrar('err', esc(msg)); }
+  $('btnSalir').onclick = function(){ if ((ls(K_COLA) || []).length && !confirm('Hay reportes sin enviar. ¿Salir?')) return; salir(); };
+  $('btnIngresar').onclick = function(){
+    var u = $('usuario').value.trim(), pin = $('pin').value.trim(), a = $('areaSel').value;
+    if (!a || !u || !pin){ mostrar('err', 'Elija PIT o mina, y escriba usuario y PIN.'); return; }
+    if (!gs() || !navigator.onLine){ mostrar('err', 'Para ingresar la primera vez necesita señal.'); return; }
+    gs().withSuccessHandler(function(r){
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      ses = { usuario: r.nombre, pin: pin, area: a }; ls(K_SES, ses); $('resultado').innerHTML = '';
+      mostrarSesion(); cargarListas(); procesarCola();
+    }).withFailureHandler(function(){ mostrar('err', 'No se pudo conectar.'); }).ingresar(u, pin);
+  };
+  function aplicarInicio(x){
+    if (!x) return; I = x;
+    $('areaSel').innerHTML = '<option value="">Elija…</option>' + x.areas.map(function(a){ return '<option>' + esc(a) + '</option>'; }).join('');
+    datalist('dlUsuarios', x.usuarios);
+    if (x.url){ $('lnkTar').href = x.url; $('lnkTar').hidden = false; }
+    pintarHechosTipos();
+    if (!ses) $('sub').textContent = 'Ingrese con su usuario';
+  }
+  aplicarInicio(ls(K_INI));
+  if (gs()) gs().withSuccessHandler(function(x){ ls(K_INI, x); aplicarInicio(x); }).withFailureHandler(function(){}).getInicioCables();
+  ses = ls(K_SES);
+  mostrarSesion(); pintarCola(); pintarRed(); cargarListas();
+})();
+</script>
+</body>
+</html>
