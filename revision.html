@@ -25,6 +25,8 @@
   label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:3px}
   input,select,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;min-height:38px;width:100%}
   textarea{min-height:70px;resize:vertical}
+  input.hr{width:96px;padding:4px}
+  #dFil2{margin-top:-4px}
   .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
   button{font:600 14px system-ui,sans-serif;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--ln);background:var(--card);color:var(--tx)}
   button.pri{background:var(--acc);border-color:var(--acc);color:#111}
@@ -88,10 +90,19 @@
       <div><button type="button" id="btnCargar" class="pri" style="width:100%">Cargar</button></div>
       <div><button type="button" id="btnExcel" style="width:100%">Descargar Excel</button></div>
     </section>
+    <section class="card filtros" id="dFil2">
+      <div><label for="fDown">DOWN</label><select id="fDown"><option value="">Todas</option><option>DOWN</option><option>NO DOWN</option></select></div>
+      <div><label for="fEquipo">Equipo</label><select id="fEquipo"></select></div>
+      <div><label for="fTec">Técnico</label><select id="fTec"></select></div>
+      <div><label for="fCuad">Cuadrilla</label><select id="fCuad"></select></div>
+      <div><label for="fTurno">Turno</label><select id="fTurno"></select></div>
+      <div><label for="fGrupo">Grupo</label><select id="fGrupo"></select></div>
+      <div><button type="button" id="btnLimpiar" style="width:100%">Quitar filtros</button></div>
+    </section>
     <div class="tw" id="twT"><table>
       <thead><tr>
         <th>Fecha</th><th>Turno</th><th>PIT</th><th>G/C</th><th>Clase</th><th>Tipo de trabajo</th><th>Equipo / circuito</th>
-        <th>Inicio</th><th>Fin</th><th>Min DOWN</th><th>Técnicos</th><th>Descripción</th>
+        <th>Inicio</th><th>Desenerg.</th><th>Energ.</th><th>Fin</th><th>Min DOWN</th><th>Técnicos</th><th>Descripción</th><th>Línea de tiempo</th>
         <th>Prod. h</th><th>Clima h</th><th>Desplaz. h</th><th>Espera h</th><th>Revisión</th>
       </tr></thead>
       <tbody id="tb"></tbody>
@@ -113,7 +124,7 @@
         <div data-solo="elec"><label>Hora parada</label><input type="time" data-c="hParada"></div>
         <div><label>Hora inicio</label><input type="time" data-c="hInicio"></div>
         <div data-solo="down"><label>Hora desenergización</label><input type="time" data-c="hDesen"></div>
-        <div data-solo="down"><label>Hora entrega</label><input type="time" data-c="hEntrega"></div>
+        <div data-solo="down"><label>Hora energización (entrega)</label><input type="time" data-c="hEntrega"></div>
         <div><label>Hora fin</label><input type="time" data-c="hFin"></div>
         <div data-solo="elec"><label>Componente que falló</label><select data-c="componente"></select></div>
         <div data-solo="elec"><label>Modo de falla</label><select data-c="modo"></select></div>
@@ -191,7 +202,7 @@
   function modoVista(){
     var i = verInsp();
     $('twT').classList.toggle('hidden', i); $('twI').classList.toggle('hidden', !i);
-    $('dEstado').classList.toggle('hidden', i); $('dOrigen').classList.toggle('hidden', i);
+    $('dEstado').classList.toggle('hidden', i); $('dOrigen').classList.toggle('hidden', i); $('dFil2').classList.toggle('hidden', i);
     $('barra').classList.toggle('hidden', i || !ses.edita);
     if (i) $('cardDet').classList.add('hidden');
   }
@@ -233,15 +244,37 @@
     var f = { area: $('fArea').value, desde: $('fDesde').value, hasta: $('fHasta').value, estado: $('fEstado').value, origen: $('fOrigen').value };
     run().withSuccessHandler(function(r){
       if (!r.ok){ mostrar('err', esc(r.error)); return; }
-      datos = r.tareas; pintar();
+      datos = r.tareas; llenarFiltros(); pintar();
     }).withFailureHandler(function(e){ $('cnt').textContent = 'No se pudo cargar: ' + (e && e.message || ''); }).getRevision(ses.usuario, ses.pin, f);
   }
   $('btnCargar').onclick = cargar;
   $('fTexto').addEventListener('input', function(){ if (verInsp()) pintarInsp(); else pintar(); });
 
+  /* ---------- filtros de la lista (DOWN, equipo, técnico, cuadrilla, turno, grupo) ---------- */
+  var FIL = { fEquipo: 'equipo', fTec: 'tec', fCuad: 'CUADRILLA', fTurno: 'TURNO', fGrupo: 'GRUPO' };
+  function tecnicosDe(t){ return String(t.TECNICOS || '').split(/\s*(?:\/|,|;|\s-\s|\sy\s)\s*/i).map(function(x){ return x.trim(); }).filter(Boolean); }
+  function valFil(t, k){ return k === 'equipo' ? [valCampo(t, 'equipo')] : k === 'tec' ? tecnicosDe(t) : [String(t[k] || '')]; }
+  function llenarFiltros(){
+    Object.keys(FIL).forEach(function(id){
+      var sel = $(id), v = sel.value, set = {};
+      datos.forEach(function(t){ valFil(t, FIL[id]).forEach(function(x){ x = String(x).trim(); if (x) set[x.toUpperCase()] = set[x.toUpperCase()] || x; }); });
+      var arr = Object.keys(set).map(function(k){ return set[k]; }).sort(function(a, b){ return a.localeCompare(b, 'es', { numeric: true }); });
+      sel.innerHTML = '<option value="">Todos</option>' + arr.map(function(x){ return '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('');
+    });
+  }
+  ['fDown'].concat(Object.keys(FIL)).forEach(function(id){ $(id).addEventListener('change', function(){ pintar(); }); });
+  $('btnLimpiar').onclick = function(){ ['fDown'].concat(Object.keys(FIL)).forEach(function(id){ $(id).value = ''; }); $('fTexto').value = ''; pintar(); };
+  function pasaFiltros(t){
+    if ($('fDown').value && valCampo(t, 'clase') !== $('fDown').value) return false;
+    return Object.keys(FIL).every(function(id){
+      var v = $(id).value; if (!v) return true;
+      return valFil(t, FIL[id]).some(function(x){ return String(x).trim().toUpperCase() === v.toUpperCase(); });
+    });
+  }
   function visibles(){
     var q = $('fTexto').value.trim().toUpperCase();
     return datos.filter(function(t){
+      if (!pasaFiltros(t)) return false;
       return !q || [t.EQUIPO, t.CIRCUITO, t.TECNICOS, t.TIPO_TRABAJO, t.REPORTADO_POR, 'G' + t.GRUPO + ' C' + t.CUADRILLA, t.DESCRIPCION].join(' ').toUpperCase().indexOf(q) >= 0;
     });
   }
@@ -254,17 +287,19 @@
   }
   function filaHtml(t){
     var inp = function(k){ return editable(t) ? '<input data-k="' + k + '" inputmode="decimal" value="' + esc(valCol(t, k)) + '">' : esc(t[k]); };
+    var down = valCampo(t, 'clase') === 'DOWN';
+    var hEd = function(k){ var v = valCampo(t, k); return editable(t) && down ? '<input type="time" class="hr" data-h="' + k + '" value="' + esc(v) + '">' : esc(v); };
     return '<tr data-id="' + esc(t.ID) + '" class="' + (cambios[t.ID] ? 'cambio ' : '') + (actual && actual.ID === t.ID ? 'sel' : '') + '">' +
       '<td>' + esc(t.FECHA_TURNO.slice(8, 10) + '/' + t.FECHA_TURNO.slice(5, 7)) + '</td><td>' + esc(t.TURNO) + '</td><td>' + esc(t.AREA) + '</td>' +
       '<td>' + esc(t.GRUPO + '/' + t.CUADRILLA) + '</td><td class="' + (valCampo(t, 'clase') === 'DOWN' ? 'down' : '') + '">' + esc(valCampo(t, 'clase')) + '</td>' +
       '<td>' + esc(valCampo(t, 'tipo')) + '</td><td>' + esc([valCampo(t, 'equipo'), valCampo(t, 'circuito')].filter(Boolean).join(' · ')) + '</td>' +
-      '<td>' + esc(valCampo(t, 'hInicio')) + '</td><td>' + esc(valCampo(t, 'hFin')) + '</td><td>' + esc(t.MIN_DOWN) + '</td>' +
-      '<td>' + esc(t.TECNICOS) + '</td><td class="desc">' + esc(valCampo(t, 'descripcion')) + '</td>' +
+      '<td>' + esc(valCampo(t, 'hInicio')) + '</td><td>' + hEd('hDesen') + '</td><td>' + hEd('hEntrega') + '</td><td>' + esc(valCampo(t, 'hFin')) + '</td><td>' + esc(t.MIN_DOWN) + '</td>' +
+      '<td>' + esc(t.TECNICOS) + '</td><td class="desc">' + esc(valCampo(t, 'descripcion')) + '</td><td class="desc" title="' + esc(valCampo(t, 'lineaTiempo')) + '">' + esc(valCampo(t, 'lineaTiempo')) + '</td>' +
       HORAS.map(function(k){ return '<td>' + inp(k) + '</td>'; }).join('') + '<td>' + pillRev(t) + '</td></tr>';
   }
   function pintar(){
     var v = visibles();
-    $('tb').innerHTML = v.map(filaHtml).join('') || '<tr><td colspan="17" class="mut">No hay tareas con ese filtro.</td></tr>';
+    $('tb').innerHTML = v.map(filaHtml).join('') || '<tr><td colspan="20" class="mut">No hay tareas con ese filtro.</td></tr>';
     $('cnt').textContent = v.length + ' tareas' + (datos.length >= 600 ? ' (máximo 600: acorte las fechas)' : '') + (ses.edita ? ' · toque una fila para ver y corregir la tarea' : ' · toque una fila para ver el detalle');
   }
   function repintarFila(id){
@@ -272,16 +307,24 @@
       var t = datos.find(function(x){ return x.ID === id; }); var tr = document.querySelector('tr[data-id="' + id + '"]');
       if (!t || !tr || !tr.parentNode) return;
       var tmp = document.createElement('tbody'); tmp.innerHTML = filaHtml(t);
-      var nuevo = tmp.firstChild, foco = document.activeElement && tr.contains(document.activeElement) ? document.activeElement.dataset.k : '';
+      var nuevo = tmp.firstChild, foco = document.activeElement && tr.contains(document.activeElement) ? (document.activeElement.dataset.k || document.activeElement.dataset.h) : '';
       tr.parentNode.replaceChild(nuevo, tr);
-      if (foco){ var el = nuevo.querySelector('[data-k="' + foco + '"]'); if (el) el.focus(); }
+      if (foco){ var el = nuevo.querySelector('[data-k="' + foco + '"],[data-h="' + foco + '"]'); if (el) el.focus(); }
     }, 0);
   }
   function cambio(id){ return cambios[id] || (cambios[id] = { campos: {} }); }
   function pintarPend(){ var n = Object.keys(cambios).length; $('pend').textContent = n ? n + ' tarea(s) por guardar' : 'Sin cambios'; }
 
   $('tb').addEventListener('change', function(ev){
-    var el = ev.target; if (!el.dataset.k) return;
+    var el = ev.target;
+    if (el.dataset.h){
+      var idh = el.closest('tr').dataset.id;
+      cambio(idh).campos[el.dataset.h] = el.value;
+      repintarFila(idh); pintarPend();
+      if (actual && actual.ID === idh) pintarDetalle();
+      return;
+    }
+    if (!el.dataset.k) return;
     var id = el.closest('tr').dataset.id; cambio(id)[el.dataset.k] = el.value.trim();
     repintarFila(id); pintarPend();
   });
