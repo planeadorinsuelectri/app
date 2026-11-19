@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RCA</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#d1d5db; --zebra:#f9fafb;
+    --acc:#d97706; --bar:#d97706; --ok:#15803d; --okbg:#dcfce7; --err:#b91c1c; --errbg:#fee2e2; --pend:#92400e; --pendbg:#fef3c7;
+    --info:#1d4ed8; --infobg:#dbeafe;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2f343e; --zebra:#1f232b;
+      --acc:#f59e0b; --bar:#f59e0b; --ok:#4ade80; --okbg:#0f2a19; --err:#f87171; --errbg:#2c1212; --pend:#fbbf24; --pendbg:#2c220c;
+      --info:#93c5fd; --infobg:#172554; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{background:#1f2937;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  header h1{margin:0;font-size:18px;flex:1;min-width:200px}
+  header small{display:block;color:#d1d5db;font-weight:400;font-size:12px}
+  main{padding:12px 16px 40px;max-width:1320px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+  h2{font-size:15px;margin:0 0 10px}
+  h3{font-size:13px;margin:12px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:3px}
+  input,select,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;min-height:38px;width:100%}
+  textarea{min-height:64px;resize:vertical}
+  button{font:600 14px system-ui,sans-serif;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--ln);background:var(--card);color:var(--tx)}
+  button.pri{background:var(--acc);border-color:var(--acc);color:#111}
+  button.lnk{border:none;background:none;color:var(--acc);padding:2px 4px;font-size:13px}
+  button:disabled{opacity:.5;cursor:default}
+  #login{max-width:360px;margin:40px auto}
+  #login input{margin-bottom:10px}
+  .msg{border-radius:10px;padding:10px 12px;margin-bottom:12px}
+  .msg.ok{background:var(--okbg);color:var(--ok)} .msg.err{background:var(--errbg);color:var(--err)} .msg.info{background:var(--infobg);color:var(--info)}
+  .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+  .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tx);font-weight:500;min-height:38px}
+  .chk input{width:auto;min-height:0}
+  .rapidos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .rapidos button{padding:6px 10px;font-size:12px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:12px}
+  .kpi h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+  .kpi b{font-size:22px}
+  .kpi span{display:block;font-size:12px;color:var(--mut)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--ln);margin:6px 0 12px;overflow-x:auto}
+  .tabs button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--mut);padding:10px 12px;white-space:nowrap}
+  .tabs button.sel{color:var(--tx);border-bottom-color:var(--acc)}
+  .tw{overflow:auto;border:1px solid var(--ln);border-radius:12px;background:var(--card);max-height:60vh}
+  table{border-collapse:collapse;width:100%}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--ln);vertical-align:top;text-align:left}
+  th{position:sticky;top:0;z-index:1;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);background:var(--bg);white-space:nowrap}
+  td.n,th.n{text-align:right;white-space:nowrap}
+  tbody tr:nth-child(even) td{background:var(--zebra)}
+  #tbCasos tr{cursor:pointer}
+  #tbCasos tr.sel td{outline:2px solid var(--acc);outline-offset:-2px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+  .p-Pendiente{background:var(--pendbg);color:var(--pend)} .p-Cerrado{background:var(--okbg);color:var(--ok)}
+  .p-En{background:var(--infobg);color:var(--info)} .p-Sin,.p-No{background:var(--errbg);color:var(--err)}
+  .crit{color:var(--err);font-weight:700}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .full{grid-column:1/-1}
+  dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 12px;margin:0;font-size:13px}
+  dt{color:var(--mut)} dd{margin:0;white-space:pre-wrap}
+  .sug{font-size:11px;color:var(--info);font-weight:500}
+  .acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .fotos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .fotos a{width:110px;font-size:11px;color:inherit;text-decoration:none}
+  .fotos img{width:110px;height:110px;object-fit:cover;border-radius:8px;display:block}
+  .hb{display:grid;grid-template-columns:minmax(90px,40%) 1fr auto;gap:4px 8px;align-items:center;font-size:12px}
+  .hb .bar{height:14px;background:var(--bar);border-radius:3px;min-width:2px}
+  .hb .lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hb .val{color:var(--mut);white-space:nowrap}
+  .hidden{display:none!important}
+  .mut{color:var(--mut)}
+  #imp{display:none}
+  @media print{
+    body{background:#fff;color:#000}
+    header,main>*:not(#imp){display:none!important}
+    #imp{display:block!important;font:12px/1.35 Arial,sans-serif}
+    #imp table{border-collapse:collapse;width:100%}
+    #imp th,#imp td{border:1px solid #444;padding:5px 7px;text-align:left;vertical-align:top;position:static;background:#fff;color:#000;font-size:12px;text-transform:none;letter-spacing:0}
+    #imp th{width:28%;background:#f2f2f2}
+    #imp h1{font-size:18px;margin:0 0 8px}
+  }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>RCA – movimientos<small id="sub">Ingrese con su usuario de revisión</small></h1>
+  <button type="button" id="btnExcel" class="hidden">Descargar Excel</button>
+  <button type="button" id="btnSalir" class="hidden">Salir</button>
+</header>
+<main>
+  <div id="resultado"></div>
+
+  <section class="card" id="login">
+    <label for="usuario">Usuario</label>
+    <input id="usuario" list="dlUsuarios" autocomplete="off">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <button type="button" class="pri" id="btnIngresar" style="width:100%">Ingresar</button>
+  </section>
+
+  <div id="app" class="hidden">
+    <section class="card" id="bxCarga">
+      <h2>Cargar reporte de Drummond</h2>
+      <p class="mut" style="margin:0 0 8px">El Excel "Reporte Histórico de Down y Standby" (o el archivo DB_RESUMEN para cargar el histórico con sus RCA). Lo repetido no se vuelve a cargar.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <input id="archivo" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="max-width:420px">
+        <button type="button" class="pri" id="btnCargar" disabled>Cargar</button>
+        <span class="mut" id="infoArchivo"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="filtros">
+        <div><label for="fDesde">Desde</label><input id="fDesde" type="date"></div>
+        <div><label for="fHasta">Hasta</label><input id="fHasta" type="date"></div>
+        <div><label for="fMina">Mina</label>
+          <select id="fMina"><option value="">Todas</option><option value="DESCANSO">El Descanso – PIT 2</option><option value="DP5">PIT 5</option><option value="PRIBBENOW">Pribbenow</option></select></div>
+        <div><label for="fCat">Categoría</label><select id="fCat"><option value="">Todas</option></select></div>
+        <div><label for="fEstado">Estado RCA</label><select id="fEstado"><option value="">Todos</option></select></div>
+        <div><label class="chk"><input type="checkbox" id="fCrit" checked> Solo críticos</label></div>
+        <div><button type="button" class="pri" id="btnVer" style="width:100%">Consultar</button></div>
+      </div>
+      <div class="rapidos">
+        <button type="button" data-r="mes">Este mes</button>
+        <button type="button" data-r="ant">Mes anterior</button>
+        <button type="button" data-r="30">Últimos 30 días</button>
+        <button type="button" data-r="todo">Todo</button>
+      </div>
+    </section>
+
+    <div class="kpis" id="kpis"></div>
+
+    <nav class="tabs" id="tabs">
+      <button type="button" data-t="cas" class="sel">Casos</button>
+      <button type="button" data-t="par">Pareto</button>
+    </nav>
+
+    <section id="t-cas">
+      <div class="tw"><table><thead><tr>
+        <th>Fecha</th><th>Hora</th><th>Turno</th><th>Equipo</th><th>Categoría</th><th>Mina</th>
+        <th class="n">Real</th><th class="n">Objetivo</th><th class="n">Exceso</th><th class="n">% crít.</th><th>Tarea técnico</th><th>Estado RCA</th>
+      </tr></thead><tbody id="tbCasos"></tbody></table></div>
+      <p class="mut" id="nCasos" style="font-size:12px"></p>
+
+      <section class="card hidden" id="det" style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+          <h2 style="margin:0" id="detTit"></h2>
+          <button type="button" id="btnCerrarDet">Cerrar</button>
+        </div>
+        <div class="grid2" style="margin-top:10px">
+          <div><h3>Drummond</h3><dl id="detEv"></dl></div>
+          <div><h3>Tarea del técnico</h3><div id="detTar"></div></div>
+        </div>
+        <div id="detCand"></div>
+        <h3>Análisis (RCA)</h3>
+        <div class="grid">
+          <div><label for="r_desen">Desenergización <span class="sug" id="s_desen"></span></label><input id="r_desen" placeholder="HH:MM"></div>
+          <div><label for="r_energ">Energización <span class="sug" id="s_energ"></span></label><input id="r_energ" placeholder="HH:MM"></div>
+          <div><label for="r_resp">Responsable</label><input id="r_resp"></div>
+          <div><label for="r_wo">Work order</label><input id="r_wo"></div>
+          <div class="full"><label for="r_desc">Descripción del evento <span class="sug" id="s_desc"></span></label><textarea id="r_desc"></textarea></div>
+          <div class="full"><label for="r_demoras">Demoras <span class="sug" id="s_demoras"></span></label><textarea id="r_demoras"></textarea></div>
+          <div class="full"><label for="r_causas">Causas inmediatas</label><textarea id="r_causas"></textarea></div>
+          <div class="full"><label for="r_pq1">Por qué #1</label><textarea id="r_pq1"></textarea></div>
+          <div class="full"><label for="r_pq2">Por qué #2</label><textarea id="r_pq2"></textarea></div>
+          <div class="full"><label for="r_pq3">Por qué #3</label><textarea id="r_pq3"></textarea></div>
+          <div class="full"><label for="r_pq4">Por qué #4</label><textarea id="r_pq4"></textarea></div>
+          <div class="full"><label for="r_pq5">Por qué #5</label><textarea id="r_pq5"></textarea></div>
+          <div class="full"><label for="r_raiz">Causa raíz</label><textarea id="r_raiz"></textarea></div>
+          <div class="full"><label for="r_accion">Acción preventiva</label><textarea id="r_accion"></textarea></div>
+          <div class="full"><label for="r_motivo">Motivo (si es "Sin reporte del técnico" o "No corresponde")</label><input id="r_motivo"></div>
+        </div>
+        <div class="acciones" id="detAcc">
+          <button type="button" class="pri" id="btnGuardarRCA">Guardar</button>
+          <button type="button" id="btnCerrarRCA">Cerrar RCA</button>
+          <button type="button" id="btnSinRep">Sin reporte del técnico</button>
+          <button type="button" id="btnNoCorr">No corresponde</button>
+          <button type="button" id="btnImprimir">Imprimir / PDF</button>
+        </div>
+        <p class="mut" id="detEstado" style="font-size:12px;margin:8px 0 0"></p>
+      </section>
+    </section>
+
+    <section id="t-par" class="hidden">
+      <div class="card">
+        <h2>Por categoría</h2>
+        <div class="tw" style="max-height:none"><table><thead><tr><th>Categoría</th><th class="n">Casos</th><th class="n">Críticos</th><th class="n">% críticos</th><th class="n">Min excedidos (críticos)</th><th class="n">Min excedidos (todos)</th></tr></thead><tbody id="tbCat"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Por mina</h2>
+        <div class="tw" style="max-height:none"><table><thead><tr><th>Mina</th><th class="n">Casos</th><th class="n">Críticos</th><th class="n">% críticos</th><th class="n">Min excedidos (críticos)</th><th class="n">Min excedidos (todos)</th></tr></thead><tbody id="tbMina"></tbody></table></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Críticos por equipo</h2><div id="hEq"></div></div>
+        <div class="card"><h2>Críticos por causa raíz</h2><div id="hRaiz"></div></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="imp"></div>
+</main>
+<datalist id="dlUsuarios"></datalist>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var ses = null, R = null, caso = null, sel = '', pendienteArchivo = null;
+  var NOM_MINA = { DESCANSO: 'El Descanso – PIT 2', DP5: 'PIT 5', PRIBBENOW: 'Pribbenow' };
+  var CAMPOS = { desen: 'DESENERGIZACION', energ: 'ENERGIZACION', resp: 'RESPONSABLE', wo: 'WORK_ORDER', desc: 'DESCRIPCION', demoras: 'DEMORAS',
+    causas: 'CAUSAS_INMEDIATAS', pq1: 'PQ1', pq2: 'PQ2', pq3: 'PQ3', pq4: 'PQ4', pq5: 'PQ5', raiz: 'CAUSA_RAIZ', accion: 'ACCION_PREVENTIVA', motivo: 'MOTIVO' };
+  var CLAVE_SRV = { desen: 'desen', energ: 'energ', resp: 'responsable', wo: 'wo', desc: 'descripcion', demoras: 'demoras', causas: 'causas',
+    pq1: 'pq1', pq2: 'pq2', pq3: 'pq3', pq4: 'pq4', pq5: 'pq5', raiz: 'causaRaiz', accion: 'accion', motivo: 'motivo' };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function ls(k, v){ try{ if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; } if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+  function mostrar(t, h){ $('resultado').innerHTML = h ? '<div class="msg ' + t + '">' + h + '</div>' : ''; if (h) window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function iso(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function run(){ return google.script.run; }
+  function num(n){ return n == null ? '' : Math.round(n).toLocaleString('es-CO'); }
+  function dec(n){ return n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('es-CO'); }
+  function pillEstado(e){ return e ? '<span class="pill p-' + esc(e.split(' ')[0]) + '">' + esc(e) + '</span>' : ''; }
+
+  /* ---------- ingreso ---------- */
+  function entrar(){
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('btnSalir').classList.remove('hidden'); $('btnExcel').classList.remove('hidden');
+    $('sub').textContent = ses.nombre;
+    rango('mes'); cargar();
+    if (pendienteArchivo){ leerArchivo(pendienteArchivo); pendienteArchivo = null; }
+  }
+  $('btnIngresar').onclick = function(){
+    var u = $('usuario').value.trim(), p = $('pin').value.trim();
+    if (!u || !p){ mostrar('err', 'Escriba usuario y PIN.'); return; }
+    $('btnIngresar').disabled = true;
+    run().withSuccessHandler(function(r){
+      $('btnIngresar').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      ses = r; ses.usuario = r.nombre; ses.pin = p; ls('rev_ses', ses); mostrar('', ''); entrar();
+    }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar.'); }).ingresarSupervisor(u, p);
+  };
+  $('btnSalir').onclick = function(){ ls('rev_ses', null); location.reload(); };
+
+  /* ---------- filtros ---------- */
+  function rango(t){
+    var h = new Date(), d;
+    if (t === 'mes'){ d = new Date(h.getFullYear(), h.getMonth(), 1); }
+    else if (t === 'ant'){ d = new Date(h.getFullYear(), h.getMonth() - 1, 1); h = new Date(h.getFullYear(), h.getMonth(), 0); }
+    else if (t === '30'){ d = new Date(h.getTime() - 29 * 864e5); }
+    else { $('fDesde').value = ''; $('fHasta').value = ''; return; }
+    $('fDesde').value = iso(d); $('fHasta').value = iso(h);
+  }
+  document.querySelector('.rapidos').addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (!b) return; rango(b.dataset.r); cargar(); });
+  $('btnVer').onclick = cargar;
+  $('tabs').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    Array.prototype.forEach.call($('tabs').children, function(x){ x.classList.toggle('sel', x === b); });
+    ['cas','par'].forEach(function(t){ $('t-' + t).classList.toggle('hidden', t !== b.dataset.t); });
+  });
+
+  function cargar(){
+    var f = { desde: $('fDesde').value, hasta: $('fHasta').value, mina: $('fMina').value, categoria: $('fCat').value, estado: $('fEstado').value, criticos: $('fCrit').checked };
+    $('btnVer').disabled = true;
+    run().withSuccessHandler(function(r){
+      $('btnVer').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      R = r;
+      var vc = $('fCat').value, ve = $('fEstado').value;
+      $('fCat').innerHTML = '<option value="">Todas</option>' + r.categorias.map(function(c){ return '<option' + (c === vc ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('');
+      $('fEstado').innerHTML = '<option value="">Todos</option>' + r.estados.map(function(c){ return '<option' + (c === ve ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('');
+      $('bxCarga').classList.toggle('hidden', !r.edita);
+      $('sub').textContent = ses.nombre + ' · actualizado ' + r.generado;
+      pintar();
+    }).withFailureHandler(function(e){ $('btnVer').disabled = false; mostrar('err', 'No se pudo conectar: ' + esc(e && e.message || '')); })
+      .getRCA(ses.usuario, ses.pin, f);
+  }
+
+  function pintar(){
+    var T = R.totales, E = T.estados || {};
+    $('kpis').innerHTML = [
+      ['Eventos', num(T.eventos), 'movimientos en el periodo'],
+      ['Críticos', num(T.criticos), T.eventos ? (T.criticos / T.eventos * 100).toFixed(1) + '% (real > 1,5 × objetivo)' : ''],
+      ['Con tarea del técnico', num(T.conTarea), num(T.sinTarea) + ' críticos sin tarea'],
+      ['RCA pendientes', num((E['Pendiente'] || 0) + (E['En elaboración'] || 0)), num(E['En elaboración'] || 0) + ' en elaboración'],
+      ['RCA cerrados', num(E['Cerrado'] || 0), num(E['Sin reporte del técnico'] || 0) + ' sin reporte · ' + num(E['No corresponde'] || 0) + ' no corresponden']
+    ].map(function(k){ return '<div class="kpi"><h4>' + k[0] + '</h4><b>' + k[1] + '</b><span>' + esc(k[2]) + '</span></div>'; }).join('');
+    $('tbCasos').innerHTML = R.casos.map(function(c){
+      var tar = c.tarea ? '<span class="pill p-Cerrado">' + (c.enlace === 'Manual' ? 'Enlazada' : 'Sí' + (c.dif != null ? ' (' + c.dif + ' min)' : '')) + '</span>'
+        : (c.critico ? '<span class="pill p-Sin">Sin tarea</span>' : '<span class="mut">—</span>');
+      return '<tr data-k="' + esc(c.key) + '"' + (c.key === sel ? ' class="sel"' : '') + '><td>' + esc(c.fecha) + '</td><td>' + esc(c.hora) + '</td><td>' + esc(c.turno) + '</td><td>' + esc(c.equipo) +
+        '</td><td>' + esc(c.categoria) + '</td><td>' + esc(c.minaDr) + '</td><td class="n">' + dec(c.real) + '</td><td class="n">' + dec(c.obj) +
+        '</td><td class="n' + (c.critico ? ' crit' : '') + '">' + dec(c.exceso) + '</td><td class="n' + (c.critico ? ' crit' : '') + '">' + dec(c.pct) + '%</td><td>' + tar + '</td><td>' + pillEstado(c.estado) + '</td></tr>';
+    }).join('') || '<tr><td colspan="12" class="mut">Sin casos con estos filtros.</td></tr>';
+    $('nCasos').textContent = R.casos.length + ' casos' + (R.hayMas ? ' (se muestran los 600 más recientes; filtre por fechas)' : '') + '. Toque un caso para ver el detalle y hacer el RCA.';
+    var fila = function(g){ return '<tr><td>' + esc(NOM_MINA[g.k] || g.k) + '</td><td class="n">' + g.casos + '</td><td class="n">' + g.criticos + '</td><td class="n">' +
+      (g.casos ? (g.criticos / g.casos * 100).toFixed(1) : '0') + '%</td><td class="n"><b>' + num(g.minExcCrit) + '</b></td><td class="n">' + num(g.minExc) + '</td></tr>'; };
+    $('tbCat').innerHTML = R.porCategoria.map(fila).join('') || '<tr><td colspan="6" class="mut">Sin datos.</td></tr>';
+    $('tbMina').innerHTML = R.porMina.map(fila).join('') || '<tr><td colspan="6" class="mut">Sin datos.</td></tr>';
+    $('hEq').innerHTML = hbars(R.porEquipo);
+    $('hRaiz').innerHTML = hbars(R.porCausa) + '<p class="mut" style="font-size:12px">Solo cuenta los RCA que ya tienen causa raíz escrita.</p>';
+  }
+  function hbars(arr){
+    var top = arr.slice(0, 12), max = Math.max.apply(null, top.map(function(x){ return x.casos; })) || 1;
+    if (!top.length) return '<p class="mut">Sin datos.</p>';
+    return '<div class="hb">' + top.map(function(x){
+      return '<span class="lab" title="' + esc(x.k) + '">' + esc(x.k) + '</span><div><div class="bar" style="width:' + (x.casos / max * 100) + '%"></div></div><span class="val">' + x.casos + ' · ' + num(x.minExc) + ' min</span>';
+    }).join('') + '</div>';
+  }
+
+  /* ---------- detalle de un caso ---------- */
+  $('tbCasos').addEventListener('click', function(ev){ var tr = ev.target.closest('tr[data-k]'); if (tr) abrir(tr.dataset.k); });
+  $('btnCerrarDet').onclick = function(){ $('det').classList.add('hidden'); sel = ''; pintar(); };
+  function abrir(k){
+    sel = k; pintar();
+    $('det').classList.remove('hidden'); $('detTit').textContent = 'Cargando…'; $('detEv').innerHTML = ''; $('detTar').innerHTML = ''; $('detCand').innerHTML = '';
+    run().withSuccessHandler(function(r){
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      caso = r; pintarCaso();
+      $('det').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }).withFailureHandler(function(){ mostrar('err', 'No se pudo conectar.'); }).getCasoRCA(ses.usuario, ses.pin, k);
+  }
+  function hm(s){ var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? pad(+m[1]) + ':' + m[2] : ''; }
+  function sugerencias(t){
+    if (!t) return {};
+    var dem = [];
+    if (t.justMin) dem.push(t.justMin.split(' | ').map(function(x){ var p = x.split('='); return p[1] + ' min ' + p[0].toLowerCase(); }).join(', '));
+    else if (t.justificaciones) dem.push(t.justificaciones.split(' | ').join(', '));
+    if (/^s/i.test(t.cambioPlan || '')) dem.push('cambio de plan ' + (t.minCambio ? t.minCambio + ' min' : '') + (t.descCambio ? ': ' + t.descCambio : ''));
+    return { desen: hm(t.desen), energ: hm(t.entrega), desc: [t.descripcion, t.linea].filter(Boolean).join('\n'), demoras: dem.join('. ') };
+  }
+  function pintarCaso(){
+    var c = caso.caso, t = caso.tarea, r = caso.rca;
+    $('detTit').textContent = c.equipo + ' · ' + c.categoria + ' · ' + c.fecha + ' ' + c.hora;
+    $('detEv').innerHTML = [['Código', c.cod], ['Mina', NOM_MINA[c.minaDr] || c.minaDr], ['Turno / grupo', c.turno + ' · ' + c.crew],
+      ['Tiempo real', dec(c.real) + ' min'], ['Objetivo', dec(c.obj) + ' min'], ['Exceso', dec(c.exceso) + ' min (' + dec(c.pct) + '%)'],
+      ['Crítico', c.critico ? 'SÍ' : 'No'], ['Comentario', c.comment]].filter(function(d){ return d[1]; })
+      .map(function(d){ return '<dt>' + d[0] + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
+    if (t){
+      $('detTar').innerHTML = '<dl>' + [['Tarea', t.id + (c.enlace === 'Manual' ? ' (enlazada a mano)' : c.dif != null ? ' (inicio a ' + c.dif + ' min del de Drummond)' : '')],
+        ['Fecha / turno', t.fecha + ' · ' + t.turno], ['Área / grupo', t.area + ' · ' + t.grupo + ' · cuadrilla ' + t.cuadrilla], ['Supervisor', t.supervisor], ['Técnicos', t.tecnicos],
+        ['Equipo / circuito', [t.equipo, t.circuito].filter(Boolean).join(' · ')], ['Tipo', t.tipo],
+        ['Horas', ['parada ' + t.parada, 'desenerg. ' + t.desen, 'entrega ' + t.entrega, 'fin ' + t.fin].filter(function(x){ return /\d/.test(x); }).join(' · ')],
+        ['Min DOWN', t.minDown], ['Justificaciones', t.justMin || t.justificaciones], ['Cambio de plan', /^s/i.test(t.cambioPlan || '') ? t.minCambio + ' min: ' + t.descCambio : ''],
+        ['Descripción', t.descripcion], ['Línea de tiempo', t.linea]].filter(function(d){ return d[1]; })
+        .map(function(d){ return '<dt>' + d[0] + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('') + '</dl>' +
+        (t.fotos && t.fotos.length ? '<div class="fotos">' + t.fotos.map(function(f){ return '<a href="' + esc(f.ver) + '" target="_blank" rel="noopener"><img src="' + esc(f.url) + '" alt="" loading="lazy"><span>' + esc(f.nota || '') + '</span></a>'; }).join('') + '</div>' : '') +
+        (caso.edita ? '<button type="button" class="lnk" id="btnQuitar">Quitar enlace (no es esta tarea)</button>' : '');
+    } else {
+      $('detTar').innerHTML = '<p class="crit" style="margin:0">Sin tarea del técnico.</p><p class="mut" style="margin:4px 0 0;font-size:12px">Enlace una de las tareas de abajo, corrija la tarea en Revisión, o marque "Sin reporte del técnico".</p>';
+    }
+    $('detCand').innerHTML = !t && caso.candidatas.length ? '<h3>Tareas parecidas (para enlazar a mano)</h3><div class="tw" style="max-height:260px"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Inicio</th><th class="n">Dif.</th><th>Equipo</th><th>Tipo</th><th>Grupo</th><th>Descripción</th><th></th></tr></thead><tbody>' +
+      caso.candidatas.map(function(x){ return '<tr><td>' + esc(x.fecha) + '</td><td>' + esc(x.turno) + '</td><td>' + esc(x.inicio) + '</td><td class="n">' + x.dif + ' min</td><td>' + esc(x.equipo) + '</td><td>' + esc(x.tipo) +
+        '</td><td>' + esc(x.grupo) + '</td><td class="mut">' + esc(x.desc) + '</td><td>' + (caso.edita ? '<button type="button" class="lnk" data-enl="' + esc(x.id) + '">Enlazar</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+      : (!t ? '<p class="mut" style="font-size:12px">No hay tareas DOWN parecidas cerca de esa hora.</p>' : '');
+    var s = sugerencias(t);
+    Object.keys(CAMPOS).forEach(function(k){
+      var v = r[CAMPOS[k]] || '';
+      if (!v && s[k]){ v = s[k]; if ($('s_' + k)) $('s_' + k).textContent = '(sugerido de la tarea)'; }
+      else if ($('s_' + k)) $('s_' + k).textContent = '';
+      if (k === 'resp' && !v) v = 'Insuelectri';
+      $('r_' + k).value = v;
+      $('r_' + k).disabled = !caso.edita;
+    });
+    ['btnGuardarRCA','btnCerrarRCA','btnSinRep','btnNoCorr'].forEach(function(id){ $(id).classList.toggle('hidden', !caso.edita); });
+    $('detEstado').textContent = 'Estado: ' + (c.estado || 'Sin RCA (no es crítico)') + (r.ACTUALIZADO ? ' · última edición ' + r.ACTUALIZADO + ' por ' + r.ACTUALIZADO_POR : '');
+  }
+  $('detCand').addEventListener('click', function(ev){ var b = ev.target.closest('button[data-enl]'); if (b) guardar(null, { idTarea: b.dataset.enl }); });
+  $('detTar').addEventListener('click', function(ev){ if (ev.target.id === 'btnQuitar') guardar(null, { idTarea: 'NINGUNA' }); });
+  function leerForm(){ var o = {}; Object.keys(CAMPOS).forEach(function(k){ o[CLAVE_SRV[k]] = $('r_' + k).value.trim(); }); return o; }
+  function guardar(estado, extra){
+    var d = extra && 'idTarea' in extra ? extra : leerForm();
+    if (estado) d.estado = estado;
+    else if (!extra && (!caso.caso.estado || caso.caso.estado === 'Pendiente')) d.estado = 'En elaboración';
+    var botones = document.querySelectorAll('#detAcc button'); Array.prototype.forEach.call(botones, function(b){ b.disabled = true; });
+    run().withSuccessHandler(function(r){
+      Array.prototype.forEach.call(botones, function(b){ b.disabled = false; });
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      mostrar('ok', 'Guardado' + (r.estado ? ': ' + esc(r.estado) : '') + '.');
+      var k = caso.caso.key; cargar(); abrir(k);
+    }).withFailureHandler(function(){ Array.prototype.forEach.call(botones, function(b){ b.disabled = false; }); mostrar('err', 'No se pudo conectar.'); })
+      .guardarRCA(ses.usuario, ses.pin, caso.caso.key, d);
+  }
+  $('btnGuardarRCA').onclick = function(){ guardar(null); };
+  $('btnCerrarRCA').onclick = function(){ guardar('Cerrado'); };
+  $('btnSinRep').onclick = function(){ if (!$('r_motivo').value.trim()){ mostrar('err', 'Escriba el motivo.'); $('r_motivo').focus(); return; } guardar('Sin reporte del técnico'); };
+  $('btnNoCorr').onclick = function(){ if (!$('r_motivo').value.trim()){ mostrar('err', 'Escriba el motivo.'); $('r_motivo').focus(); return; } guardar('No corresponde'); };
+
+  /* ---------- imprimir RCA Express ---------- */
+  $('btnImprimir').onclick = function(){
+    var c = caso.caso, f = leerForm(), t = caso.tarea;
+    var filas = [['FECHA', c.fecha], ['EQUIPO', c.equipo + ' (' + c.cod + ')'], ['MINA', NOM_MINA[c.minaDr] || c.minaDr], ['GRUPO', c.crew], ['TURNO', c.turno],
+      ['CATEGORÍA', c.categoria], ['DESCRIPCIÓN', f.descripcion], ['TIEMPO REAL (min)', dec(c.real)], ['TIEMPO OBJETIVO (min)', dec(c.obj)],
+      ['EXCESO (min)', dec(c.exceso)], ['CRITICIDAD', dec(c.pct) + '%'], ['INICIO DE DOWN', c.hora], ['DESENERGIZACIÓN', f.desen], ['ENERGIZACIÓN', f.energ],
+      ['CAUSAS INMEDIATAS', f.causas], ['POR QUÉ #1', f.pq1], ['POR QUÉ #2', f.pq2], ['POR QUÉ #3', f.pq3], ['POR QUÉ #4', f.pq4], ['POR QUÉ #5', f.pq5],
+      ['CAUSA RAÍZ', f.causaRaiz], ['ACCIÓN PREVENTIVA', f.accion], ['RESPONSABLE', f.responsable], ['WORK ORDER', f.wo], ['DEMORAS', f.demoras]];
+    $('imp').innerHTML = '<h1>RCA EXPRESS</h1><table>' + filas.map(function(x){ return '<tr><th>' + x[0] + '</th><td style="white-space:pre-wrap">' + esc(x[1] || '') + '</td></tr>'; }).join('') + '</table>';
+    window.print();
+  };
+
+  /* ---------- Excel ---------- */
+  $('btnExcel').onclick = function(){
+    if (!R || typeof XLSX === 'undefined'){ mostrar('err', 'Primero consulte (y verifique la señal).'); return; }
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.casos.map(function(c){ return { 'Fecha': c.fecha, 'Hora': c.hora, 'Turno': c.turno, 'Equipo': c.equipo, 'Código': c.cod,
+      'Categoría': c.categoria, 'Mina': c.minaDr, 'Grupo': c.crew, 'Real (min)': c.real, 'Objetivo (min)': c.obj, 'Exceso (min)': c.exceso, '% crítico': c.pct,
+      'Crítico': c.critico ? 'SI' : 'NO', 'Tarea técnico': c.tarea, 'Enlace': c.enlace, 'Estado RCA': c.estado, 'Comentario Drummond': c.comment }; })), 'Casos');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porCategoria.map(function(g){ return { 'Categoría': g.k, 'Casos': g.casos, 'Críticos': g.criticos, 'Min excedidos críticos': g.minExcCrit, 'Min excedidos todos': g.minExc }; })), 'Pareto categoría');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porMina.map(function(g){ return { 'Mina': g.k, 'Casos': g.casos, 'Críticos': g.criticos, 'Min excedidos críticos': g.minExcCrit, 'Min excedidos todos': g.minExc }; })), 'Pareto mina');
+    XLSX.writeFile(wb, 'RCA_' + ($('fDesde').value || 'inicio') + '_a_' + ($('fHasta').value || 'hoy') + '.xlsx');
+  };
+
+  /* ---------- carga del Excel ---------- */
+  $('archivo').onchange = function(){ $('btnCargar').disabled = !this.files.length; $('infoArchivo').textContent = this.files.length ? this.files[0].name : ''; };
+  $('btnCargar').onclick = function(){ if ($('archivo').files.length) leerArchivo($('archivo').files[0]); };
+  function fechaXl(v){
+    if (v == null || v === '') return '';
+    if (typeof v === 'number'){ var d = new Date(Math.round((v - 25569) * 864e5)); return d.toISOString().slice(0, 10); }
+    var s = String(v).trim(), m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]);
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    return m ? m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]) : '';
+  }
+  function horaXl(v){
+    if (v == null || v === '') return '';
+    if (typeof v === 'number'){ var s = Math.round((v % 1) * 86400); return pad(Math.floor(s / 3600) % 24) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); }
+    var m = String(v).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])?/i);
+    if (!m) return '';
+    var h = +m[1]; if (m[4] && /p/i.test(m[4]) && h < 12) h += 12; if (m[4] && /a/i.test(m[4]) && h === 12) h = 0;
+    return pad(h) + ':' + m[2] + ':' + (m[3] || '00');
+  }
+  function norm(s){ return String(s || '').trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  function tabla(ws){
+    var a = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+    for (var i = 0; i < Math.min(12, a.length); i++){
+      var h = a[i].map(norm);
+      if (h.indexOf('FECHA') >= 0 && h.indexOf('EQUIPO') >= 0) return { h: h, filas: a.slice(i + 1) };
+    }
+    return null;
+  }
+  function eventosDe(t){
+    var I = function(n){ return t.h.indexOf(n); };
+    var c = { fecha: I('FECHA'), equipo: I('EQUIPO'), modelo: I('TYPE'), status: I('STATUS'), detalle: I('DETALLE'), min: I('MIN.'), hora: I('HORA'),
+      comment: I('COMMENT'), turno: I('TURNO'), mina: I('MINA'), crew: I('CREW'), tipoDown: I('TIPO DOWN') };
+    if (c.detalle < 0 || c.min < 0 || c.hora < 0) return [];
+    return t.filas.filter(function(r){ return r[c.fecha] !== '' && r[c.equipo] !== ''; }).map(function(r){
+      var g = function(k){ return c[k] >= 0 ? r[c[k]] : ''; };
+      return { fecha: fechaXl(g('fecha')), equipo: String(g('equipo')).replace(/\.0$/, ''), modelo: String(g('modelo')), status: String(g('status')),
+        detalle: String(g('detalle')).trim(), min: Number(g('min')) || 0, hora: horaXl(g('hora')), comment: String(g('comment')).trim(),
+        turno: String(g('turno')), mina: String(g('mina')).trim(), crew: String(g('crew')), tipoDown: String(g('tipoDown')) };
+    });
+  }
+  function rcasDe(t){
+    var I = function(n){ return t.h.indexOf(norm(n)); };
+    var c = { fecha: I('FECHA'), equipo: I('EQUIPO'), detalle: I('DETALLE'), hora: I('Inicio de Down'), desen: I('Desenergización'), energ: I('Energización'),
+      desc: I('Descripcion del Evento'), causas: I('Causas inmediatas (Down Time Reason)'), pq1: I('Por qué? #1'), pq2: I('Por qué? #2'), pq3: I('Por qué? #3'),
+      pq4: I('Por qué? #4'), pq5: I('Por qué? #5'), raiz: I('Causa Raíz'), accion: I('Accion Preventiva'), resp: I('Responsable'), wo: I('WORK ORDER'), demoras: I('DEMORAS') };
+    if (c.causas < 0 || c.hora < 0) return [];
+    var txt = function(v){ return v === 0 || v === '0' ? '' : String(v == null ? '' : v).trim(); };
+    return t.filas.filter(function(r){ return ['desc','causas','pq1','raiz','accion','demoras'].some(function(k){ return c[k] >= 0 && txt(r[c[k]]); }); }).map(function(r){
+      var o = { fecha: fechaXl(r[c.fecha]), equipo: String(r[c.equipo]).replace(/\.0$/, ''), detalle: String(r[c.detalle]).trim(), hora: horaXl(r[c.hora]) };
+      ['desen','energ'].forEach(function(k){ o[k] = c[k] >= 0 ? horaXl(r[c[k]]).slice(0, 5) : ''; });
+      ['desc','causas','pq1','pq2','pq3','pq4','pq5','raiz','accion','resp','wo','demoras'].forEach(function(k){ o[k] = c[k] >= 0 ? txt(r[c[k]]) : ''; });
+      return o;
+    });
+  }
+  function leerArchivo(file){
+    if (typeof XLSX === 'undefined'){ mostrar('err', 'No cargó el lector de Excel. Revise la señal y recargue.'); return; }
+    mostrar('info', 'Leyendo ' + esc(file.name) + '…');
+    var fr = new FileReader();
+    fr.onload = function(){
+      var wb;
+      try{ wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' }); }catch(e){ mostrar('err', 'No se pudo leer el archivo: ' + esc(e.message)); return; }
+      var ev = [], rc = [];
+      var hoja = function(n){ var k = wb.SheetNames.find(function(x){ return norm(x) === norm(n); }); return k ? wb.Sheets[k] : null; };
+      if (hoja('Resumen de movimientos')){
+        ['Resumen de movimientos', 'Down Electrico'].forEach(function(n){ var w = hoja(n), t = w && tabla(w); if (t) ev = ev.concat(eventosDe(t)); });
+        var p = hoja('Procesador'), tp = p && tabla(p); if (tp) rc = rcasDe(tp);
+      } else {
+        wb.SheetNames.forEach(function(n){ var t = tabla(wb.Sheets[n]); if (t) ev = ev.concat(eventosDe(t)); });
+      }
+      if (!ev.length){ mostrar('err', 'No encontré la tabla de eventos (columnas FECHA, EQUIPO, DETALLE, Min., HORA).'); return; }
+      enviar(ev, rc, file.name);
+    };
+    fr.readAsArrayBuffer(file);
+  }
+  function enviar(ev, rc, nombre){
+    var lotes = [], N = 700, tot = { nuevos: 0, repetidos: 0, otros: 0, malos: 0, down: 0, rcaNuevos: 0, rcaYa: 0 };
+    for (var i = 0; i < ev.length; i += N) lotes.push(ev.slice(i, i + N));
+    var k = 0;
+    $('btnCargar').disabled = true;
+    (function sig(){
+      if (k >= lotes.length){
+        $('btnCargar').disabled = false; $('archivo').value = ''; $('infoArchivo').textContent = '';
+        mostrar('ok', '<b>' + esc(nombre) + '</b>: ' + tot.nuevos + ' movimientos nuevos, ' + tot.down + ' DOWN eléctrico (aparte), ' + tot.repetidos + ' ya estaban, ' +
+          tot.otros + ' de otras categorías (no se cargan)' + (tot.malos ? ', ' + tot.malos + ' filas sin fecha u hora' : '') +
+          (rc.length ? '. RCA: ' + tot.rcaNuevos + ' cargados, ' + tot.rcaYa + ' ya estaban.' : '.'));
+        cargar(); return;
+      }
+      mostrar('info', 'Cargando… ' + Math.min((k + 1) * N, ev.length) + ' de ' + ev.length + ' filas');
+      run().withSuccessHandler(function(r){
+        if (!r.ok){ $('btnCargar').disabled = false; mostrar('err', esc(r.error)); return; }
+        Object.keys(tot).forEach(function(x){ tot[x] += r[x] || 0; }); k++; sig();
+      }).withFailureHandler(function(e){ $('btnCargar').disabled = false; mostrar('err', 'Se cortó la carga: ' + esc(e && e.message || '') + '. Vuelva a cargar el archivo; lo repetido no se duplica.'); })
+        .cargarEventosDrummond(ses.usuario, ses.pin, lotes[k], k === lotes.length - 1 ? rc : []);
+    })();
+  }
+
+  /* archivo compartido desde WhatsApp (Android): lo deja el service worker en la caché */
+  function compartido(){
+    if (!/compartido=1/.test(location.search) || !window.caches) return;
+    caches.open('compartido').then(function(c){ return c.match('archivo-compartido').then(function(r){
+      if (!r) return;
+      var nombre = decodeURIComponent(r.headers.get('X-Nombre') || 'reporte.xlsx');
+      return r.blob().then(function(b){
+        c.delete('archivo-compartido');
+        var f = new File([b], nombre);
+        if (ses) leerArchivo(f); else { pendienteArchivo = f; mostrar('info', 'Ingrese para cargar ' + esc(nombre) + '.'); }
+      });
+    }); }).catch(function(){});
+  }
+
+  run().withSuccessHandler(function(x){ $('dlUsuarios').innerHTML = x.usuarios.map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); }).getInicioRevision();
+  var guardada = ls('rev_ses');
+  if (guardada && guardada.usuario && guardada.pin){ ses = guardada; entrar(); }
+  compartido();
+})();
+</script>
+</body>
+</html>
