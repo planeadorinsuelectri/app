@@ -65,6 +65,10 @@
   table.tres th,table.tres td{padding:7px 8px;text-align:right}
   table.tres th:first-child,table.tres td:first-child{text-align:left}
   table.tres tr:last-child td{border-top:2px solid var(--ln)}
+  table.ktipos{margin-top:10px;font-size:12px}
+  table.ktipos th,table.ktipos td{padding:4px 6px;font-size:12px}
+  table.ktipos tr:last-child td{border-top:0}
+  table.ktipos tbody tr:nth-child(even) td{background:transparent}
   .panel{background:var(--card);border:1px solid var(--ln);border-radius:12px;overflow:hidden}
   .alerta{padding:10px 12px;border-bottom:1px solid var(--ln)}
   .alerta b{color:var(--warn)}
@@ -236,8 +240,25 @@
       var c = function(s){ return it.filter(function(x){ return x.estado === s; }).length; };
       return '<div class="kpi"><h3>' + NOM[el] + 's</h3><div class="big">' + it.length + ' <span>en total</span></div>' +
         '<div class="leg"><span>En circuito <b>' + c('Instalado') + '</b></span><span>Disponibles <b>' + c('Disponible') +
-        '</b></span><span>No disponibles <b>' + c('No disponible') + '</b></span></div></div>';
+        '</b></span><span>No disponibles <b>' + c('No disponible') + '</b></span></div>' + tablaTipos(el, it) + '</div>';
     }).join('');
+  }
+
+  /* tipos dentro de cada cuadro: en circuito / disponibles / no disponibles / total */
+  function tablaTipos(el, it){
+    var tt = (el === 'CABLE' ? D.tiposCable : el === 'CAJA' ? D.tiposCaja : D.tiposTorre) || [];
+    var tipos = tt.slice();
+    it.forEach(function(x){ if (x.tipo && tipos.indexOf(x.tipo) < 0) tipos.push(x.tipo); });
+    tipos.push('');
+    var n = function(arr, e){ return arr.filter(function(x){ return x.estado === e; }).length; };
+    var filas = tipos.map(function(t){
+      var de = it.filter(function(x){ return (x.tipo || '') === t; });
+      if (!de.length) return '';
+      return '<tr><td>' + (t ? esc(t) : 'Sin tipo') + '</td><td>' + n(de, 'Instalado') + '</td><td>' + n(de, 'Disponible') +
+        '</td><td>' + n(de, 'No disponible') + '</td><td><b>' + de.length + '</b></td></tr>';
+    }).join('');
+    return filas ? '<table class="tres ktipos"><thead><tr><th>Tipo</th><th>Circ.</th><th>Disp.</th><th>No disp.</th><th>Total</th></tr></thead><tbody>' +
+      filas + '</tbody></table>' : '';
   }
 
   function selects(){
