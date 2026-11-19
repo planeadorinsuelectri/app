@@ -335,7 +335,7 @@
     $('nLista').textContent = F.lista.length < F.eventos ? '(últimos ' + F.lista.length + ')' : '(' + F.eventos + ')';
     $('lista').innerHTML = F.lista.map(function(x){
       var fallo = [x.comp, x.num ? '#' + x.num : '', x.elem, x.modo].filter(Boolean).join(' · ') || 'Sin clasificar';
-      var dl = [['Mina / área', x.mina + ' · ' + x.area], ['Turno / grupo', [x.turno, x.grupo].filter(Boolean).join(' · ')], ['Circuito', x.circuito],
+      var dl = [['Equipo reportado', x.equipoTxt !== x.equipo ? x.equipoTxt : ''], ['Mina / área', x.mina + ' · ' + x.area], ['Turno / grupo', [x.turno, x.grupo].filter(Boolean).join(' · ')], ['Circuito', x.circuito],
         ['Componente', x.comp], ['Número', x.num], ['Rol', x.rol], ['Elemento', x.elem], ['Posición', x.pos], ['Modo de falla', x.modo],
         ['Mecanismo', x.mec], ['Causa', x.causa], ['Detección', x.det], ['Actividad', x.act], ['Impacto', x.imp], ['Justificaciones', x.just], ['Origen', x.origen]]
         .filter(function(d){ return d[1]; }).map(function(d){ return '<dt>' + d[0] + '</dt><dd style="margin:0">' + esc(d[1]) + '</dd>'; }).join('');
@@ -356,7 +356,7 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(P), 'Pareto demoras');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porTipo.map(function(t){ return { 'Tipo de trabajo': t.k, 'Eventos': t.eventos, 'Minutos DOWN': t.min, 'Promedio': t.prom }; })), 'Por tipo');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.fallas.lista.map(function(x){ return { 'Fecha': x.fecha, 'Mina': x.mina, 'Área': x.area, 'Turno': x.turno, 'Grupo': x.grupo,
-      'Equipo': x.equipo, 'Circuito': x.circuito, 'Min DOWN': x.min, 'Componente': x.comp, 'Número': x.num, 'Rol': x.rol, 'Elemento': x.elem, 'Posición': x.pos,
+      'Equipo': x.equipo, 'Equipo reportado': x.equipoTxt, 'Circuito': x.circuito, 'Min DOWN': x.min, 'Componente': x.comp, 'Número': x.num, 'Rol': x.rol, 'Elemento': x.elem, 'Posición': x.pos,
       'Modo de falla': x.modo, 'Mecanismo': x.mec, 'Causa': x.causa, 'Detección': x.det, 'Actividad': x.act, 'Impacto': x.imp, 'Justificaciones': x.just,
       'Descripción': x.desc, 'Fotos': x.fotos.map(function(f){ return f.ver; }).join(' '), 'Origen': x.origen }; })), 'Fallas DOWN');
     XLSX.writeFile(wb, 'Reportes_' + ($('fMina').value || 'todas') + '_' + ($('fDesde').value || 'inicio') + '_a_' + ($('fHasta').value || 'hoy') + '.xlsx');
