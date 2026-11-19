@@ -276,12 +276,17 @@
       }
       var conteo = D.tiposCable.concat(['Sin tipo']).filter(function(k){ return g.conteo[k]; })
         .map(function(k){ return '<span class="chip">' + esc(k) + '<b>' + g.conteo[k] + '</b></span>'; }).join('');
+      var cc = {};
+      g.tramos.forEach(function(t){ t.cajas.forEach(function(x){ var k = x.tipo || 'Sin tipo'; cc[k] = (cc[k] || 0) + 1; }); });
+      var conteoCaj = (D.tiposCaja || []).concat(['Sin tipo']).filter(function(k){ return cc[k]; })
+        .map(function(k){ return '<span class="chip">' + esc(k) + '<b>' + cc[k] + '</b></span>'; }).join('');
       var filas = tramos.map(function(t, i){
         return '<tr><td class="c">' + (i + 1) + '</td>' +
           '<td data-l="Pala">' + esc(t.equipo) + '</td>' +
           '<td class="n" data-l="Cable">' + nums(t.cables) + '</td>' +
           '<td data-l="Tipo cable">' + tipos(t.cables) + '</td>' +
           '<td class="n" data-l="Caja">' + nums(t.cajas) + '</td>' +
+          '<td data-l="Tipo caja">' + t.cajas.map(function(x){ return esc(x.tipo || '—'); }).join('<br>') + '</td>' +
           '<td class="n" data-l="Torre #1">' + nums(t.t1) + (t.t1.length ? '<span class="sub">' + tipos(t.t1) + '</span>' : '') + '</td>' +
           '<td class="n" data-l="Torre #2">' + nums(t.t2) + (t.t2.length ? '<span class="sub">' + tipos(t.t2) + '</span>' : '') + '</td>' +
           '<td data-l="Detalles">' + esc(t.detalles) + '</td>' +
@@ -292,7 +297,8 @@
         (g.subs.length ? '<span class="meta">Sub: ' + esc(g.subs.join(' / ')) + '</span>' : '') +
         '<span class="meta">Cables ' + g.cables + ' · Cajas ' + g.cajas + ' · Torres ' + g.torres + '</span></div>' +
         (conteo ? '<div class="conteo"><span class="mut">Cables por tipo:</span>' + conteo + '</div>' : '') +
-        '<div class="tw"><table class="resp tramos"><thead><tr><th>#</th><th>Pala</th><th>Cable</th><th>Tipo cable</th><th>Caja</th>' +
+        (conteoCaj ? '<div class="conteo"><span class="mut">Cajas por tipo:</span>' + conteoCaj + '</div>' : '') +
+        '<div class="tw"><table class="resp tramos"><thead><tr><th>#</th><th>Pala</th><th>Cable</th><th>Tipo cable</th><th>Caja</th><th>Tipo caja</th>' +
         '<th>Torre #1</th><th>Torre #2</th><th>Detalles</th><th>Observaciones</th></tr></thead><tbody>' + filas + '</tbody></table></div></article>';
     }).join('');
     $('lstCir').innerHTML = html || '<div class="panel vacio">Sin resultados</div>';
