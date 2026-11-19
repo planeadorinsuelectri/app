@@ -43,6 +43,9 @@
   .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chips button{min-height:44px;padding:8px 12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);color:var(--tx);font:600 13px system-ui,sans-serif;text-align:left}
   .chips button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .jm{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--ln);font-size:13px}
+  .jm span{flex:1}
+  .jm input{width:90px;flex:none}
   .bloque{border-left:4px solid var(--down);padding-left:10px;margin-top:8px}
   .comp{display:grid;grid-template-columns:1fr 1.2fr auto;gap:6px;margin-bottom:4px;align-items:center}
   .comp.r{grid-template-columns:1fr 1.1fr 1.2fr auto}
@@ -213,6 +216,11 @@
     <div id="bxDown" class="bloque hidden">
       <label>Justificación <span class="mut">(puede marcar varias)</span></label>
       <div class="chips" id="justificaciones"></div>
+      <div id="bxJustMin" class="hidden">
+        <label>Minutos de cada demora <span class="mut">(cuánto tiempo del DOWN se fue en cada una)</span></label>
+        <div id="justMin"></div>
+        <p class="ayuda" id="ayJustMin" style="margin-top:4px"></p>
+      </div>
       <label for="lineaTiempo">Línea de tiempo del DOWN</label>
       <textarea id="lineaTiempo" placeholder="Desde que inició el DOWN hasta que terminó, con demoras y cambios de plan"></textarea>
       <label>¿Demora por cambio de plan?</label>
@@ -312,8 +320,29 @@
   function chipsSel(id){ return Array.prototype.filter.call($(id).children, function(b){ return b.classList.contains('sel'); }).map(function(b){ return b.dataset.v; }); }
   function chipsMarcar(id, vals){ Array.prototype.forEach.call($(id).children, function(b){ b.classList.toggle('sel', (vals || []).indexOf(b.dataset.v) >= 0); }); }
   ['enrollacables','justificaciones'].forEach(function(id){
-    $(id).addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (b) b.classList.toggle('sel'); });
+    $(id).addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (b) b.classList.toggle('sel'); if (id === 'justificaciones') pintarJustMin(); });
   });
+  /* minutos por demora: una casilla por cada justificación marcada */
+  function leerJustMin(){
+    var o = {};
+    Array.prototype.forEach.call($('justMin').querySelectorAll('input[data-j]'), function(i){ o[i.dataset.j] = i.value.trim(); });
+    return o;
+  }
+  function pintarJustMin(){
+    var sel = chipsSel('justificaciones'), prev = leerJustMin();
+    $('bxJustMin').classList.toggle('hidden', !sel.length);
+    $('justMin').innerHTML = sel.map(function(j){
+      return '<div class="jm"><span>' + esc(j) + '</span><input data-j="' + esc(j) + '" inputmode="numeric" placeholder="min" value="' + esc(prev[j] || '') + '"></div>';
+    }).join('');
+    sumaJustMin();
+  }
+  function sumaJustMin(){
+    var o = leerJustMin(), s = 0, d = st.clase === 'DOWN' ? dur('hDesen', 'hEntrega') : null;
+    Object.keys(o).forEach(function(k){ if (/^\d+$/.test(o[k])) s += +o[k]; });
+    $('ayJustMin').textContent = 'Suman ' + s + ' min' + (d != null && d >= 0 ? ' de ' + d + ' min de DOWN' : '');
+    $('ayJustMin').style.color = d != null && d >= 0 && s > d ? 'var(--err)' : '';
+  }
+  $('justMin').addEventListener('input', sumaJustMin);
 
   /* ---------- horas ---------- */
   document.addEventListener('click', function(ev){
@@ -335,6 +364,7 @@
     if (d != null) p.push(d < 0 ? 'Revise: la entrega quedó antes de la desenergización' : 'Tiempo DOWN (desenergización → entrega): ' + txtMin(d));
     $('ayTiempo').textContent = p.join(' · ');
     $('ayTiempo').style.color = (t != null && t < 0) || (d != null && d < 0) ? 'var(--err)' : '';
+    sumaJustMin();
   }
 
   /* ---------- DOWN / NO DOWN ---------- */
@@ -593,6 +623,7 @@
       componente: esElec() && !(L && L.tax) ? $('componente').value : '', modo: esElec() && !(L && L.tax) ? $('modo').value : '',
       tax: leerTax(), fotos: st.fotos.slice(),
       justificaciones: st.clase === 'DOWN' ? chipsSel('justificaciones') : [],
+      justMin: st.clase === 'DOWN' ? leerJustMin() : {},
       lineaTiempo: st.clase === 'DOWN' ? $('lineaTiempo').value.trim() : '',
       cambioPlan: st.clase === 'DOWN' ? st.cambioPlan : '', descCambio: $('descCambio').value.trim(), minCambio: $('minCambio').value.trim(),
       cableCola: st.cableCola, inspeccionCola: $('inspeccionCola').value.trim(),
@@ -630,6 +661,16 @@
       if (elec && fin && !p.modo) return 'Elija el modo de falla.';
     }
     if (!p.descripcion) return 'Escriba la descripción de la actividad.';
+    if (down){
+      var sj = 0;
+      for (var q = 0; q < p.justificaciones.length; q++){
+        var vj = p.justMin[p.justificaciones[q]] || '';
+        if (!/^\d+$/.test(vj)) return 'Escriba los minutos de la demora "' + p.justificaciones[q] + '" (solo números, 0 si no aplica).';
+        sj += +vj;
+      }
+      var dd = dur('hDesen', 'hEntrega');
+      if (fin && dd != null && dd >= 0 && sj > dd) return 'Los minutos de las demoras (' + sj + ') suman más que el tiempo DOWN (' + dd + ' min).';
+    }
     if (down && !p.cambioPlan) return 'Diga si hubo demora por cambio de plan.';
     if (down && p.cambioPlan === 'Si' && !p.descCambio) return 'Describa el cambio de plan.';
     if (down && p.cambioPlan === 'Si' && !/^\d+$/.test(p.minCambio)) return 'Escriba los minutos del cambio de plan, solo números.';
@@ -709,7 +750,7 @@
     $('componente').value = ''; $('modo').value = '';
     st.taxComp = ''; marcar('taxComp', ''); $('taxNum').value = ''; $('ayRol').textContent = ''; $('bxTaxDet').classList.add('hidden');
     st.fotos = []; pintarFotos();
-    chipsMarcar('justificaciones', []);
+    chipsMarcar('justificaciones', []); pintarJustMin();
     $('agregados').innerHTML = ''; $('retirados').innerHTML = '';
     $('bxCambio').classList.add('hidden'); $('bxCola').classList.add('hidden');
     pintarDestino(); pintarClase();
@@ -739,7 +780,7 @@
     datalist('dlSup', x.supervisores); datalist('dlTec', x.tecnicos); datalist('dlOpe', x.operadores);
     datalist('dlEquipos', x.equipos); datalist('dlCircuitos', x.circuitos); datalist('dlAcopios', x.acopios);
     var enr = chipsSel('enrollacables'); chips('enrollacables', x.enrollacables); chipsMarcar('enrollacables', enr);
-    var ju = chipsSel('justificaciones'); chips('justificaciones', x.justificaciones); chipsMarcar('justificaciones', ju);
+    var ju = chipsSel('justificaciones'); chips('justificaciones', x.justificaciones); chipsMarcar('justificaciones', ju); pintarJustMin();
     $('estado').innerHTML = (x.estados || []).map(function(v){ return '<button type="button" data-v="' + esc(v) + '">' + esc(v) + '</button>'; }).join('');
     marcar('estado', st.estado);
     var c = $('componente').value, m = $('modo').value;
