@@ -148,7 +148,7 @@
     <section id="t-cas">
       <div class="tw"><table><thead><tr>
         <th>Fecha</th><th>Hora</th><th>Turno</th><th>Equipo</th><th>Categoría</th><th>Mina</th>
-        <th class="n">Real</th><th class="n">Objetivo</th><th class="n">Exceso</th><th class="n">% crít.</th><th>Tarea técnico</th><th>Estado RCA</th>
+        <th class="n">Real</th><th class="n">Objetivo</th><th class="n">Exceso</th><th class="n">% crít.</th><th>Tarea / RCA</th><th>Estado RCA</th>
       </tr></thead><tbody id="tbCasos"></tbody></table></div>
       <p class="mut" id="nCasos" style="font-size:12px"></p>
 
@@ -292,13 +292,14 @@
     $('kpis').innerHTML = [
       ['Eventos', num(T.eventos), 'movimientos en el periodo'],
       ['Críticos', num(T.criticos), T.eventos ? (T.criticos / T.eventos * 100).toFixed(1) + '% (real > 1,5 × objetivo)' : ''],
-      ['Con tarea del técnico', num(T.conTarea), num(T.sinTarea) + ' críticos sin tarea'],
+      ['Con tarea o RCA del Excel', num(T.conTarea), num(T.porEnlazar || 0) + ' pendientes de enlazar (desde ' + fmtCorte() + ')'],
       ['RCA pendientes', num((E['Pendiente'] || 0) + (E['En elaboración'] || 0)), num(E['En elaboración'] || 0) + ' en elaboración'],
       ['RCA cerrados', num(E['Cerrado'] || 0), num(E['Sin reporte del técnico'] || 0) + ' sin reporte · ' + num(E['No corresponde'] || 0) + ' no corresponden']
     ].map(function(k){ return '<div class="kpi"><h4>' + k[0] + '</h4><b>' + k[1] + '</b><span>' + esc(k[2]) + '</span></div>'; }).join('');
     $('tbCasos').innerHTML = R.casos.map(function(c){
-      var tar = c.tarea ? '<span class="pill p-Cerrado">' + (c.enlace === 'Manual' ? 'Enlazada' : 'Sí' + (c.dif != null ? ' (' + c.dif + ' min)' : '')) + '</span>'
-        : (c.critico ? '<span class="pill p-Sin">Sin tarea</span>' : '<span class="mut">—</span>');
+      var tar = c.tarea ? '<span class="pill p-Cerrado" title="' + esc(c.tarea) + '">' + esc(c.tarea) + '</span>' + (c.tipoDistinto ? ' <span class="pill" title="El técnico la registró como ' + esc(c.tipoTarea) + '">otro tipo</span>' : '')
+        : c.numRca ? '<span class="pill p-Cerrado">RCA #' + esc(c.numRca) + '</span>'
+        : (c.critico ? (c.deExcel ? '<span class="pill p-Sin">Sin RCA en Excel</span>' : '<span class="pill p-Sin">Pendiente de enlazar</span>') : '<span class="mut">—</span>');
       return '<tr data-k="' + esc(c.key) + '"' + (c.key === sel ? ' class="sel"' : '') + '><td>' + esc(c.fecha) + '</td><td>' + esc(c.hora) + '</td><td>' + esc(c.turno) + '</td><td>' + esc(c.equipo) +
         '</td><td>' + esc(c.categoria) + '</td><td>' + esc(c.minaDr) + '</td><td class="n">' + dec(c.real) + '</td><td class="n">' + dec(c.obj) +
         '</td><td class="n' + (c.critico ? ' crit' : '') + '">' + dec(c.exceso) + '</td><td class="n' + (c.critico ? ' crit' : '') + '">' + dec(c.pct) + '%</td><td>' + tar + '</td><td>' + pillEstado(c.estado) + '</td></tr>';
@@ -331,6 +332,7 @@
       $('det').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }).withFailureHandler(function(){ mostrar('err', 'No se pudo conectar.'); }).getCasoRCA(ses.usuario, ses.pin, k);
   }
+  function fmtCorte(){ var c = (R && R.corte) || ''; return c ? c.slice(8, 10) + '-' + c.slice(5, 7) : ''; }
   function hm(s){ var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? pad(+m[1]) + ':' + m[2] : ''; }
   function sugerencias(t){
     if (!t) return {};
@@ -358,7 +360,8 @@
         (t.fotos && t.fotos.length ? '<div class="fotos">' + t.fotos.map(function(f){ return '<a href="' + esc(f.ver) + '" target="_blank" rel="noopener"><img src="' + esc(f.url) + '" alt="" loading="lazy"><span>' + esc(f.nota || '') + '</span></a>'; }).join('') + '</div>' : '') +
         (caso.edita ? '<button type="button" class="lnk" id="btnQuitar">Quitar enlace (no es esta tarea)</button>' : '');
     } else {
-      $('detTar').innerHTML = '<p class="crit" style="margin:0">Sin tarea del técnico.</p><p class="mut" style="margin:4px 0 0;font-size:12px">Enlace una de las tareas de abajo, corrija la tarea en Revisión, o marque "Sin reporte del técnico".</p>';
+      $('detTar').innerHTML = c.numRca && c.deExcel ? '<p style="margin:0"><b>RCA #' + esc(c.numRca) + ' del Excel</b></p><p class="mut" style="margin:4px 0 0;font-size:12px">Caso cargado tal cual del archivo de movimientos. Si quiere, puede enlazar la tarea del técnico con las de abajo.</p>'
+        : '<p class="crit" style="margin:0">Pendiente de enlazar la tarea del técnico.</p><p class="mut" style="margin:4px 0 0;font-size:12px">Enlace una de las tareas de abajo, corrija la tarea en Revisión, o marque "Sin reporte del técnico".</p>';
     }
     $('detCand').innerHTML = !t && caso.candidatas.length ? '<h3>Tareas parecidas (para enlazar a mano)</h3><div class="tw" style="max-height:260px"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Inicio</th><th class="n">Dif.</th><th>Equipo</th><th>Tipo</th><th>Grupo</th><th>Descripción</th><th></th></tr></thead><tbody>' +
       caso.candidatas.map(function(x){ return '<tr><td>' + esc(x.fecha) + '</td><td>' + esc(x.turno) + '</td><td>' + esc(x.inicio) + '</td><td class="n">' + x.dif + ' min</td><td>' + esc(x.equipo) + '</td><td>' + esc(x.tipo) +
@@ -415,7 +418,16 @@
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.casos.map(function(c){ return { 'Fecha': c.fecha, 'Hora': c.hora, 'Turno': c.turno, 'Equipo': c.equipo, 'Código': c.cod,
       'Categoría': c.categoria, 'Mina': c.minaDr, 'Grupo': c.crew, 'Real (min)': c.real, 'Objetivo (min)': c.obj, 'Exceso (min)': c.exceso, '% crítico': c.pct,
-      'Crítico': c.critico ? 'SI' : 'NO', 'Tarea técnico': c.tarea, 'Enlace': c.enlace, 'Estado RCA': c.estado, 'Comentario Drummond': c.comment }; })), 'Casos');
+      'Crítico': c.critico ? 'SI' : 'NO', 'RCA Excel #': c.numRca, 'Tarea técnico': c.tarea, 'Enlace': c.enlace,
+      'Tipo en la tarea': c.tipoTarea, 'Tipo distinto a Drummond': c.tipoDistinto ? 'SI' : '', 'Grupo tarea': c.grupoTarea, 'Supervisor': c.supervisor,
+      'Estado RCA': c.estado, 'Comentario Drummond': c.comment }; })), 'Casos');
+    var conRca = R.casos.filter(function(c){ return c.rca; });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conRca.length ? conRca.map(function(c){ var x = c.rca; return { 'Fecha': c.fecha, 'Hora': c.hora,
+      'Equipo': c.equipo, 'Categoría': c.categoria, 'Mina': c.minaDr, 'Real (min)': c.real, 'Objetivo (min)': c.obj, 'Exceso (min)': c.exceso, 'Estado RCA': c.estado,
+      'RCA Excel #': c.numRca, 'Tarea técnico': c.tarea, 'Desenergización': x.desen, 'Energización': x.ener, 'Descripción': x.desc, 'Causas inmediatas': x.inm,
+      'Por qué 1': x.pq[0], 'Por qué 2': x.pq[1], 'Por qué 3': x.pq[2], 'Por qué 4': x.pq[3], 'Por qué 5': x.pq[4],
+      'Causa raíz': x.raiz, 'Acción preventiva': x.accion, 'Responsable': x.resp, 'Work order': x.wo, 'Demoras': x.demoras, 'Motivo': x.motivo,
+      'Actualizado': x.act, 'Actualizado por': x.actPor }; }) : [{ 'Sin RCA en el filtro': '' }]), 'RCA');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porCategoria.map(function(g){ return { 'Categoría': g.k, 'Casos': g.casos, 'Críticos': g.criticos, 'Min excedidos críticos': g.minExcCrit, 'Min excedidos todos': g.minExc }; })), 'Pareto categoría');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porMina.map(function(g){ return { 'Mina': g.k, 'Casos': g.casos, 'Críticos': g.criticos, 'Min excedidos críticos': g.minExcCrit, 'Min excedidos todos': g.minExc }; })), 'Pareto mina');
     XLSX.writeFile(wb, 'RCA_' + ($('fDesde').value || 'inicio') + '_a_' + ($('fHasta').value || 'hoy') + '.xlsx');
@@ -465,11 +477,11 @@
     var I = function(n){ return t.h.indexOf(norm(n)); };
     var c = { fecha: I('FECHA'), equipo: I('EQUIPO'), detalle: I('DETALLE'), hora: I('Inicio de Down'), desen: I('Desenergización'), energ: I('Energización'),
       desc: I('Descripcion del Evento'), causas: I('Causas inmediatas (Down Time Reason)'), pq1: I('Por qué? #1'), pq2: I('Por qué? #2'), pq3: I('Por qué? #3'),
-      pq4: I('Por qué? #4'), pq5: I('Por qué? #5'), raiz: I('Causa Raíz'), accion: I('Accion Preventiva'), resp: I('Responsable'), wo: I('WORK ORDER'), demoras: I('DEMORAS') };
+      pq4: I('Por qué? #4'), pq5: I('Por qué? #5'), raiz: I('Causa Raíz'), accion: I('Accion Preventiva'), resp: I('Responsable'), wo: I('WORK ORDER'), demoras: I('DEMORAS'), num: I('ID') };
     if (c.causas < 0 || c.hora < 0) return [];
     var txt = function(v){ return v === 0 || v === '0' ? '' : String(v == null ? '' : v).trim(); };
-    return t.filas.filter(function(r){ return ['desc','causas','pq1','raiz','accion','demoras'].some(function(k){ return c[k] >= 0 && txt(r[c[k]]); }); }).map(function(r){
-      var o = { fecha: fechaXl(r[c.fecha]), equipo: String(r[c.equipo]).replace(/\.0$/, ''), detalle: String(r[c.detalle]).trim(), hora: horaXl(r[c.hora]) };
+    return t.filas.filter(function(r){ return (c.num >= 0 && txt(r[c.num])) || ['desc','causas','pq1','raiz','accion','demoras'].some(function(k){ return c[k] >= 0 && txt(r[c[k]]); }); }).map(function(r){
+      var o = { fecha: fechaXl(r[c.fecha]), equipo: String(r[c.equipo]).replace(/\.0$/, ''), detalle: String(r[c.detalle]).trim(), hora: horaXl(r[c.hora]), num: c.num >= 0 ? txt(r[c.num]) : '' };
       ['desen','energ'].forEach(function(k){ o[k] = c[k] >= 0 ? horaXl(r[c[k]]).slice(0, 5) : ''; });
       ['desc','causas','pq1','pq2','pq3','pq4','pq5','raiz','accion','resp','wo','demoras'].forEach(function(k){ o[k] = c[k] >= 0 ? txt(r[c[k]]) : ''; });
       return o;
