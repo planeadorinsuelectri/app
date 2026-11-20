@@ -292,7 +292,7 @@
     $('kpis').innerHTML = [
       ['Eventos', num(T.eventos), 'movimientos en el periodo'],
       ['Críticos', num(T.criticos), T.eventos ? (T.criticos / T.eventos * 100).toFixed(1) + '% (real > 1,5 × objetivo)' : ''],
-      ['Con tarea o RCA del Excel', num(T.conTarea), num(T.porEnlazar || 0) + ' pendientes de enlazar (desde ' + fmtCorte() + ')'],
+      ['Con tarea o RCA del Excel', num(T.conTarea), num(T.porEnlazar || 0) + ' pendientes de enlazar (después del ' + fmtCorte() + ')'],
       ['RCA pendientes', num((E['Pendiente'] || 0) + (E['En elaboración'] || 0)), num(E['En elaboración'] || 0) + ' en elaboración'],
       ['RCA cerrados', num(E['Cerrado'] || 0), num(E['Sin reporte del técnico'] || 0) + ' sin reporte · ' + num(E['No corresponde'] || 0) + ' no corresponden']
     ].map(function(k){ return '<div class="kpi"><h4>' + k[0] + '</h4><b>' + k[1] + '</b><span>' + esc(k[2]) + '</span></div>'; }).join('');
