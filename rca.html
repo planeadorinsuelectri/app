@@ -417,18 +417,13 @@
   $('btnExcel').onclick = function(){
     if (!R || typeof XLSX === 'undefined'){ mostrar('err', 'Primero consulte (y verifique la señal).'); return; }
     var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.casos.map(function(c){ return { 'Fecha': c.fecha, 'Hora': c.hora, 'Turno': c.turno, 'Equipo': c.equipo, 'Código': c.cod,
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.casos.map(function(c){ var x = c.rca || { pq: [] }; return { 'Fecha': c.fecha, 'Hora': c.hora, 'Turno': c.turno, 'Equipo': c.equipo, 'Código': c.cod,
       'Categoría': c.categoria, 'Mina': c.minaDr, 'Grupo': c.crew, 'Real (min)': c.real, 'Objetivo (min)': c.obj, 'Exceso (min)': c.exceso, '% crítico': c.pct,
-      'Crítico': c.critico ? 'SI' : 'NO', 'RCA Excel #': c.numRca, 'Tarea técnico': c.tarea, 'Enlace': c.enlace,
-      'Tipo en la tarea': c.tipoTarea, 'Tipo distinto a Drummond': c.tipoDistinto ? 'SI' : '', 'Grupo tarea': c.grupoTarea, 'Supervisor': c.supervisor,
-      'Estado RCA': c.estado, 'Comentario Drummond': c.comment }; })), 'Casos');
-    var conRca = R.casos.filter(function(c){ return c.rca; });
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conRca.length ? conRca.map(function(c){ var x = c.rca; return { 'Fecha': c.fecha, 'Hora': c.hora,
-      'Equipo': c.equipo, 'Categoría': c.categoria, 'Mina': c.minaDr, 'Real (min)': c.real, 'Objetivo (min)': c.obj, 'Exceso (min)': c.exceso, 'Estado RCA': c.estado,
-      'RCA Excel #': c.numRca, 'Tarea técnico': c.tarea, 'Desenergización': x.desen, 'Energización': x.ener, 'Descripción': x.desc, 'Causas inmediatas': x.inm,
-      'Por qué 1': x.pq[0], 'Por qué 2': x.pq[1], 'Por qué 3': x.pq[2], 'Por qué 4': x.pq[3], 'Por qué 5': x.pq[4],
-      'Causa raíz': x.raiz, 'Acción preventiva': x.accion, 'Responsable': x.resp, 'Work order': x.wo, 'Demoras': x.demoras, 'Motivo': x.motivo,
-      'Actualizado': x.act, 'Actualizado por': x.actPor }; }) : [{ 'Sin RCA en el filtro': '' }]), 'RCA');
+      'Crítico': c.critico ? 'SI' : 'NO', 'RCA Excel #': c.numRca, 'Estado RCA': c.estado, 'Tarea técnico': c.tarea, 'Enlace': c.enlace,
+      'Desenergización': x.desen || '', 'Energización': x.ener || '', 'Descripción del evento': x.desc || '', 'Causas inmediatas': x.inm || '',
+      'Por qué 1': x.pq[0] || '', 'Por qué 2': x.pq[1] || '', 'Por qué 3': x.pq[2] || '', 'Por qué 4': x.pq[3] || '', 'Por qué 5': x.pq[4] || '',
+      'Causa raíz': x.raiz || '', 'Acción preventiva': x.accion || '', 'Responsable': x.resp || '', 'Work order': x.wo || '', 'Demoras': x.demoras || '', 'Motivo': x.motivo || '',
+      'Comentario Drummond': c.comment }; })), 'Casos');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porCategoria.map(function(g){ return { 'Categoría': g.k, 'Casos': g.casos, 'Críticos': g.criticos, 'Min excedidos críticos': g.minExcCrit, 'Min excedidos todos': g.minExc }; })), 'Pareto categoría');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porMina.map(function(g){ return { 'Mina': g.k, 'Casos': g.casos, 'Críticos': g.criticos, 'Min excedidos críticos': g.minExcCrit, 'Min excedidos todos': g.minExc }; })), 'Pareto mina');
     XLSX.writeFile(wb, 'RCA_' + ($('fDesde').value || 'inicio') + '_a_' + ($('fHasta').value || 'hoy') + '.xlsx');
