@@ -94,6 +94,7 @@
 <body>
 <header>
   <h1>RCA – movimientos<small id="sub">Ingrese con su usuario de revisión</small></h1>
+  <button type="button" id="btnConsol" class="hidden">Consolidado RCA</button>
   <button type="button" id="btnExcel" class="hidden">Descargar Excel</button>
   <button type="button" id="btnSalir" class="hidden">Salir</button>
 </header>
@@ -236,7 +237,7 @@
   /* ---------- ingreso ---------- */
   function entrar(){
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
-    $('btnSalir').classList.remove('hidden'); $('btnExcel').classList.remove('hidden');
+    $('btnSalir').classList.remove('hidden'); $('btnExcel').classList.remove('hidden'); $('btnConsol').classList.remove('hidden');
     $('sub').textContent = ses.nombre;
     rango('mes'); cargar();
     if (pendienteArchivo){ leerArchivo(pendienteArchivo); pendienteArchivo = null; }
@@ -432,6 +433,54 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porMina.map(function(g){ return { 'Mina': g.k, 'Casos': g.casos, 'Críticos': g.criticos, 'Min excedidos críticos': g.minExcCrit, 'Min excedidos todos': g.minExc }; })), 'Pareto mina');
     XLSX.writeFile(wb, 'RCA_' + ($('fDesde').value || 'inicio') + '_a_' + ($('fHasta').value || 'hoy') + '.xlsx');
   };
+
+  /* ---------- Consolidado de todos los RCA (tabla de Excel, mismas columnas del Procesador) ---------- */
+  function cargarJs(src){ return new Promise(function(ok, ko){ var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
+  $('btnConsol').onclick = function(){
+    var b = $('btnConsol'); b.disabled = true; b.textContent = 'Preparando…';
+    var fin = function(){ b.disabled = false; b.textContent = 'Consolidado RCA'; };
+    (window.ExcelJS ? Promise.resolve() : cargarJs('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')).then(function(){
+      run().withSuccessHandler(function(r){
+        if (!r.ok){ fin(); mostrar('err', esc(r.error)); return; }
+        try { consolidado(r).then(fin, function(e){ fin(); mostrar('err', 'No se pudo armar el Excel: ' + esc(e && e.message || '')); }); }
+        catch(e){ fin(); mostrar('err', 'No se pudo armar el Excel: ' + esc(e.message)); }
+      }).withFailureHandler(function(e){ fin(); mostrar('err', 'No se pudo conectar: ' + esc(e && e.message || '')); })
+        .getRCA(ses.usuario, ses.pin, { desde: '', hasta: '', criticos: true });
+    }, function(){ fin(); mostrar('err', 'No cargó el generador de Excel. Revise la señal y vuelva a intentar.'); });
+  };
+  function consolidado(r){
+    var casos = r.casos.filter(function(c){ return c.critico; }).sort(function(a, b){ return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
+    var COL = [['FECHA', 12], ['EQUIPO', 9], ['TIPO', 16], ['DETALLE', 26], ['Min_real', 9], ['MINA', 12], ['TURNO', 8], ['GRUPO', 8],
+      ['Tiempo_objetivo', 10], ['Exceso(min)', 10], ['% Criticidad', 10], ['CRITICIDAD', 11], ['Inicio de Down', 10], ['Desenergización', 11], ['Energización', 11],
+      ['ID', 6], ['Descripcion del Evento', 60], ['Causas inmediatas (Down Time Reason)', 45], ['Por qué? #1', 40], ['Por qué? #2', 40], ['Por qué? #3', 40],
+      ['Por qué? #4', 40], ['Por qué? #5', 40], ['Causa Raíz', 50], ['Accion Preventiva', 50], ['Responsable', 14], ['WORK ORDER', 12], ['DEMORAS', 40],
+      ['Estado RCA', 14], ['Tarea técnico', 16], ['Motivo', 30]];
+    var filas = casos.map(function(c){
+      var x = c.rca || { pq: ['', '', '', '', ''] }, p = c.fecha.split('-');
+      return [new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])), /^\d+$/.test(c.cod) ? +c.cod : c.cod, c.modelo || '', c.categoria, c.real, c.minaDr, c.turno, /^\d+$/.test(c.crew) ? +c.crew : c.crew,
+        c.obj, c.exceso, c.pct / 100, 'CRITICO', c.hora, x.desen || '', x.ener || '', c.numRca ? +c.numRca : null, x.desc || '', x.inm || '',
+        x.pq[0] || '', x.pq[1] || '', x.pq[2] || '', x.pq[3] || '', x.pq[4] || '', x.raiz || '', x.accion || '', x.resp || '', x.wo || '', x.demoras || '',
+        c.estado || '', c.tarea || '', x.motivo || ''];
+    });
+    var wb = new ExcelJS.Workbook(); wb.creator = 'Insuelectri';
+    var ws = wb.addWorksheet('RCA', { views: [{ state: 'frozen', ySplit: 1, xSplit: 4 }] });
+    ws.addTable({ name: 'TablaRCA', ref: 'A1', headerRow: true, style: { theme: 'TableStyleMedium3', showRowStripes: true },
+      columns: COL.map(function(c){ return { name: c[0], filterButton: true }; }), rows: filas.length ? filas : [COL.map(function(){ return ''; })] });
+    COL.forEach(function(c, i){
+      var col = ws.getColumn(i + 1); col.width = c[1];
+      col.alignment = { vertical: 'top', wrapText: c[1] >= 26 };
+      col.font = { name: 'Arial', size: 10 };
+    });
+    ws.getColumn(1).numFmt = 'dd/mm/yyyy'; ws.getColumn(5).numFmt = '0.0'; ws.getColumn(9).numFmt = '0.0'; ws.getColumn(10).numFmt = '0.0'; ws.getColumn(11).numFmt = '0.0%';
+    ws.getRow(1).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(1).alignment = { vertical: 'middle', wrapText: true }; ws.getRow(1).height = 30;
+    return wb.xlsx.writeBuffer().then(function(buf){
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      a.download = 'Consolidado_RCA_' + new Date().toISOString().slice(0, 10) + '.xlsx'; document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      mostrar('ok', 'Consolidado descargado: ' + filas.length + ' RCA.');
+    });
+  }
 
   /* ---------- carga del Excel ---------- */
   $('archivo').onchange = function(){ $('btnCargar').disabled = !this.files.length; $('infoArchivo').textContent = this.files.length ? this.files[0].name : ''; };
