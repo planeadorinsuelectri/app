@@ -364,10 +364,12 @@
       $('detTar').innerHTML = c.numRca && c.deExcel ? '<p style="margin:0"><b>RCA #' + esc(c.numRca) + ' del Excel</b></p><p class="mut" style="margin:4px 0 0;font-size:12px">Caso cargado tal cual del archivo de movimientos. Si quiere, puede enlazar la tarea del técnico con las de abajo.</p>'
         : '<p class="crit" style="margin:0">Pendiente de enlazar la tarea del técnico.</p><p class="mut" style="margin:4px 0 0;font-size:12px">Enlace una de las tareas de abajo, corrija la tarea en Revisión, o marque "Sin reporte del técnico".</p>';
     }
-    $('detCand').innerHTML = !t && caso.candidatas.length ? '<h3>Tareas parecidas (para enlazar a mano)</h3><div class="tw" style="max-height:260px"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Inicio</th><th class="n">Dif.</th><th>Equipo</th><th>Tipo</th><th>Grupo</th><th>Descripción</th><th></th></tr></thead><tbody>' +
-      caso.candidatas.map(function(x){ return '<tr><td>' + esc(x.fecha) + '</td><td>' + esc(x.turno) + '</td><td>' + esc(x.inicio) + '</td><td class="n">' + x.dif + ' min</td><td>' + esc(x.equipo) + '</td><td>' + esc(x.tipo) +
+    $('detCand').innerHTML = !t && caso.candidatas.length ? '<h3>Tareas parecidas (para enlazar a mano)</h3><div class="tw" style="max-height:260px"><table><thead><tr><th>Código</th><th>Fecha</th><th>Turno</th><th>Inicio</th><th class="n">Dif.</th><th>Equipo</th><th>Tipo</th><th>Grupo</th><th>Descripción</th><th></th></tr></thead><tbody>' +
+      caso.candidatas.map(function(x){ return '<tr><td><b>' + esc(x.id) + '</b></td><td>' + esc(x.fecha) + '</td><td>' + esc(x.turno) + '</td><td>' + esc(x.inicio) + '</td><td class="n">' + x.dif + ' min</td><td>' + esc(x.equipo) + '</td><td>' + esc(x.tipo) +
         '</td><td>' + esc(x.grupo) + '</td><td class="mut">' + esc(x.desc) + '</td><td>' + (caso.edita ? '<button type="button" class="lnk" data-enl="' + esc(x.id) + '">Enlazar</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>'
       : (!t ? '<p class="mut" style="font-size:12px">No hay tareas DOWN parecidas cerca de esa hora.</p>' : '');
+    if (!t && caso.edita) $('detCand').innerHTML += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><input id="codTarea" placeholder="Código de la tarea, ej: F-PIT2-2400" style="flex:1;min-width:200px" autocomplete="off">' +
+      '<button type="button" id="btnCod">Enlazar código</button></div><p class="mut" style="font-size:12px;margin:4px 0 0">El código sale en Revisión, arriba del detalle de cada tarea, y en el Excel de Revisión (columna ID).</p>';
     var s = sugerencias(t);
     Object.keys(CAMPOS).forEach(function(k){
       var v = r[CAMPOS[k]] || '';
@@ -380,7 +382,9 @@
     ['btnGuardarRCA','btnCerrarRCA','btnSinRep','btnNoCorr'].forEach(function(id){ $(id).classList.toggle('hidden', !caso.edita); });
     $('detEstado').textContent = 'Estado: ' + (c.estado || 'Sin RCA (no es crítico)') + (r.ACTUALIZADO ? ' · última edición ' + r.ACTUALIZADO + ' por ' + r.ACTUALIZADO_POR : '');
   }
-  $('detCand').addEventListener('click', function(ev){ var b = ev.target.closest('button[data-enl]'); if (b) guardar(null, { idTarea: b.dataset.enl }); });
+  $('detCand').addEventListener('click', function(ev){
+    if (ev.target.id === 'btnCod'){ var cod = ($('codTarea').value || '').trim(); if (!cod){ mostrar('err', 'Escriba el código de la tarea.'); return; } guardar(null, { idTarea: cod }); return; }
+    var b = ev.target.closest('button[data-enl]'); if (b) guardar(null, { idTarea: b.dataset.enl }); });
   $('detTar').addEventListener('click', function(ev){ if (ev.target.id === 'btnQuitar') guardar(null, { idTarea: 'NINGUNA' }); });
   function leerForm(){ var o = {}; Object.keys(CAMPOS).forEach(function(k){ o[CLAVE_SRV[k]] = $('r_' + k).value.trim(); }); return o; }
   function guardar(estado, extra){

@@ -356,7 +356,7 @@
   /* ---------- detalle / corrección ---------- */
   function pintarDetalle(){
     var t = actual; if (!t) return;
-    $('detTitulo').textContent = t.FECHA_TURNO + ' · ' + t.TURNO + ' · ' + t.AREA + ' · G' + t.GRUPO + '/C' + t.CUADRILLA;
+    $('detTitulo').textContent = t.FECHA_TURNO + ' · ' + t.TURNO + ' · ' + t.AREA + ' · G' + t.GRUPO + '/C' + t.CUADRILLA + ' · Código: ' + t.ID;
     $('detSub').textContent = 'Reportó: ' + t.REPORTADO_POR + ' · Técnicos: ' + t.TECNICOS;
     var f = $('form');
     var clase = valCampo(t, 'clase');
