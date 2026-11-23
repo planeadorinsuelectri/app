@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Down eléctrico</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --card:#ffffff; --tx:#111827; --mut:#6b7280; --ln:#d1d5db; --zebra:#f9fafb;
+    --acc:#d97706; --bar:#d97706; --ok:#15803d; --okbg:#dcfce7; --err:#b91c1c; --errbg:#fee2e2; --pend:#92400e; --pendbg:#fef3c7;
+    --info:#1d4ed8; --infobg:#dbeafe;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#1a1d24; --tx:#f3f4f6; --mut:#9ca3af; --ln:#2f343e; --zebra:#1f232b;
+      --acc:#f59e0b; --bar:#f59e0b; --ok:#4ade80; --okbg:#0f2a19; --err:#f87171; --errbg:#2c1212; --pend:#fbbf24; --pendbg:#2c220c;
+      --info:#93c5fd; --infobg:#172554; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{background:#1f2937;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  header h1{margin:0;font-size:18px;flex:1;min-width:200px}
+  header small{display:block;color:#d1d5db;font-weight:400;font-size:12px}
+  main{padding:12px 16px 40px;max-width:1320px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:12px}
+  h2{font-size:15px;margin:0 0 10px}
+  h3{font-size:13px;margin:12px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:3px}
+  input,select,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;min-height:38px;width:100%}
+  textarea{min-height:64px;resize:vertical}
+  button{font:600 14px system-ui,sans-serif;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--ln);background:var(--card);color:var(--tx)}
+  button.pri{background:var(--acc);border-color:var(--acc);color:#111}
+  button.lnk{border:none;background:none;color:var(--acc);padding:2px 4px;font-size:13px}
+  button:disabled{opacity:.5;cursor:default}
+  #login{max-width:360px;margin:40px auto}
+  #login input{margin-bottom:10px}
+  .msg{border-radius:10px;padding:10px 12px;margin-bottom:12px}
+  .msg.ok{background:var(--okbg);color:var(--ok)} .msg.err{background:var(--errbg);color:var(--err)} .msg.info{background:var(--infobg);color:var(--info)}
+  .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+  .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tx);font-weight:500;min-height:38px}
+  .chk input{width:auto;min-height:0}
+  .rapidos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .rapidos button{padding:6px 10px;font-size:12px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:12px}
+  .kpi h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+  .kpi b{font-size:22px}
+  .kpi span{display:block;font-size:12px;color:var(--mut)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--ln);margin:6px 0 12px;overflow-x:auto}
+  .tabs button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--mut);padding:10px 12px;white-space:nowrap}
+  .tabs button.sel{color:var(--tx);border-bottom-color:var(--acc)}
+  .tw{overflow:auto;border:1px solid var(--ln);border-radius:12px;background:var(--card);max-height:60vh}
+  table{border-collapse:collapse;width:100%}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--ln);vertical-align:top;text-align:left}
+  th{position:sticky;top:0;z-index:1;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);background:var(--bg);white-space:nowrap}
+  td.n,th.n{text-align:right;white-space:nowrap}
+  tbody tr:nth-child(even) td{background:var(--zebra)}
+  #tbCasos tr{cursor:pointer}
+  #tbCasos tr.sel td{outline:2px solid var(--acc);outline-offset:-2px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+  .p-Pendiente{background:var(--pendbg);color:var(--pend)} .p-Cerrado{background:var(--okbg);color:var(--ok)}
+  .p-En{background:var(--infobg);color:var(--info)} .p-Sin,.p-No{background:var(--errbg);color:var(--err)}
+  .crit{color:var(--err);font-weight:700}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .full{grid-column:1/-1}
+  dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 12px;margin:0;font-size:13px}
+  dt{color:var(--mut)} dd{margin:0;white-space:pre-wrap}
+  .sug{font-size:11px;color:var(--info);font-weight:500}
+  .acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .fotos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .fotos a{width:110px;font-size:11px;color:inherit;text-decoration:none}
+  .fotos img{width:110px;height:110px;object-fit:cover;border-radius:8px;display:block}
+  .hb{display:grid;grid-template-columns:minmax(90px,40%) 1fr auto;gap:4px 8px;align-items:center;font-size:12px}
+  .hb .bar{height:14px;background:var(--bar);border-radius:3px;min-width:2px}
+  .hb .lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hb .val{color:var(--mut);white-space:nowrap}
+  .hidden{display:none!important}
+  .mut{color:var(--mut)}
+  #imp{display:none}
+  @media print{
+    body{background:#fff;color:#000}
+    header,main>*:not(#imp){display:none!important}
+    #imp{display:block!important;font:12px/1.35 Arial,sans-serif}
+    #imp table{border-collapse:collapse;width:100%}
+    #imp th,#imp td{border:1px solid #444;padding:5px 7px;text-align:left;vertical-align:top;position:static;background:#fff;color:#000;font-size:12px;text-transform:none;letter-spacing:0}
+    #imp th{width:28%;background:#f2f2f2}
+    #imp h1{font-size:18px;margin:0 0 8px}
+  }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="icono-192.png">
+</head>
+<body>
+<header>
+  <h1>Down eléctrico – RCA<small id="sub">Ingrese con su usuario de revisión</small></h1>
+  <button type="button" id="btnExcel" class="hidden">Descargar Excel</button>
+  <button type="button" id="btnSalir" class="hidden">Salir</button>
+</header>
+<main>
+  <div id="resultado"></div>
+
+  <section class="card" id="login">
+    <label for="usuario">Usuario</label>
+    <input id="usuario" list="dlUsuarios" autocomplete="off">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <button type="button" class="pri" id="btnIngresar" style="width:100%">Ingresar</button>
+  </section>
+
+  <div id="app" class="hidden">
+    <section class="card" id="bxCarga">
+      <h2>Cargar reporte de PeopleSoft</h2>
+      <p class="mut" style="margin:0 0 8px">El Excel que llega en el correo "Eventos down de distribución – últimos 7 días". Descárguelo de Outlook y cárguelo aquí. Lo repetido no se vuelve a cargar.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <input id="archivo" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="max-width:420px">
+        <button type="button" class="pri" id="btnCargar" disabled>Cargar</button>
+        <span class="mut" id="infoArchivo"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="filtros">
+        <div><label for="fDesde">Desde</label><input id="fDesde" type="date"></div>
+        <div><label for="fHasta">Hasta</label><input id="fHasta" type="date"></div>
+        <div><label for="fMina">Mina</label><select id="fMina"><option value="">Todas</option></select></div>
+        <div><label for="fEquipo">Equipo</label><select id="fEquipo"><option value="">Todos</option></select></div>
+        <div><label class="chk"><input type="checkbox" id="fReq" checked> Solo casos con RCA</label></div>
+        <div><button type="button" class="pri" id="btnVer" style="width:100%">Consultar</button></div>
+      </div>
+      <div class="rapidos">
+        <button type="button" data-r="7">Últimos 7 días</button>
+        <button type="button" data-r="mes">Este mes</button>
+        <button type="button" data-r="ant">Mes anterior</button>
+        <button type="button" data-r="30">Últimos 30 días</button>
+        <button type="button" data-r="todo">Todo</button>
+      </div>
+      <p class="mut" id="criterio" style="font-size:12px;margin:8px 0 0"></p>
+    </section>
+
+    <div class="kpis" id="kpis"></div>
+
+    <nav class="tabs" id="tabs">
+      <button type="button" data-t="cas" class="sel">Casos</button>
+      <button type="button" data-t="eve">Eventos</button>
+      <button type="button" data-t="par">Paretos</button>
+    </nav>
+
+    <section id="t-cas">
+      <div class="tw"><table><thead><tr>
+        <th>Último evento</th><th>Equipo</th><th>Mina</th><th>Motivo</th><th class="n">Eventos</th><th class="n">Horas</th><th class="n">Máx. h</th><th>Por qué RCA</th><th class="n">Con tarea</th><th>Estado RCA</th>
+      </tr></thead><tbody id="tbCasos"></tbody></table></div>
+      <p class="mut" id="nCasos" style="font-size:12px"></p>
+
+      <section class="card hidden" id="det" style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+          <h2 style="margin:0" id="detTit"></h2>
+          <button type="button" id="btnCerrarDet">Cerrar</button>
+        </div>
+        <p class="mut" id="detSub" style="margin:4px 0 0"></p>
+        <h3>Eventos del caso</h3>
+        <div id="detEventos"></div>
+        <h3>Análisis (RCA)</h3>
+        <div class="grid">
+          <div><label for="r_desen">Desenergización</label><input id="r_desen" placeholder="HH:MM"></div>
+          <div><label for="r_energ">Energización</label><input id="r_energ" placeholder="HH:MM"></div>
+          <div><label for="r_resp">Responsable</label><input id="r_resp"></div>
+          <div><label for="r_wo">Work order <span class="sug" id="s_wo"></span></label><input id="r_wo"></div>
+          <div class="full"><label for="r_desc">Descripción del evento <span class="sug" id="s_desc"></span></label><textarea id="r_desc"></textarea></div>
+          <div class="full"><label for="r_demoras">Demoras</label><textarea id="r_demoras"></textarea></div>
+          <div class="full"><label for="r_causas">Causas inmediatas <span class="sug" id="s_causas"></span></label><textarea id="r_causas"></textarea></div>
+          <div class="full"><label for="r_pq1">Por qué #1</label><textarea id="r_pq1"></textarea></div>
+          <div class="full"><label for="r_pq2">Por qué #2</label><textarea id="r_pq2"></textarea></div>
+          <div class="full"><label for="r_pq3">Por qué #3</label><textarea id="r_pq3"></textarea></div>
+          <div class="full"><label for="r_pq4">Por qué #4</label><textarea id="r_pq4"></textarea></div>
+          <div class="full"><label for="r_pq5">Por qué #5</label><textarea id="r_pq5"></textarea></div>
+          <div class="full"><label for="r_raiz">Causa raíz</label><textarea id="r_raiz"></textarea></div>
+          <div class="full"><label for="r_accion">Acción preventiva</label><textarea id="r_accion"></textarea></div>
+          <div class="full"><label for="r_motivo">Motivo (si es "No corresponde")</label><input id="r_motivo"></div>
+        </div>
+        <div class="acciones" id="detAcc">
+          <button type="button" class="pri" id="btnGuardarRCA">Guardar</button>
+          <button type="button" id="btnCerrarRCA">Cerrar RCA</button>
+          <button type="button" id="btnNoCorr">No corresponde</button>
+          <button type="button" id="btnImprimir">Imprimir / PDF</button>
+        </div>
+        <p class="mut" id="detEstado" style="font-size:12px;margin:8px 0 0"></p>
+      </section>
+    </section>
+
+    <section id="t-eve" class="hidden">
+      <div class="tw"><table><thead><tr>
+        <th>Inicio</th><th>Fin</th><th class="n">Horas</th><th>Equipo</th><th>Mina</th><th>Work order</th><th>Problema</th><th>Motivo</th><th>Resolución</th><th>Tarea técnico</th><th>Descripción</th>
+      </tr></thead><tbody id="tbEventos"></tbody></table></div>
+    </section>
+
+    <section id="t-par" class="hidden">
+      <div class="grid2">
+        <div class="card"><h2>Horas por motivo</h2><div id="hMotivo"></div></div>
+        <div class="card"><h2>Horas por equipo</h2><div id="hEquipo"></div></div>
+        <div class="card"><h2>Horas por problema</h2><div id="hProblema"></div></div>
+        <div class="card"><h2>Horas por resolución</h2><div id="hResol"></div></div>
+      </div>
+      <div class="card">
+        <h2>MTTR y MTBF por equipo</h2>
+        <div class="tw" style="max-height:none"><table><thead><tr><th>Equipo</th><th class="n">Eventos</th><th class="n">Horas down</th><th class="n">MTTR (h)</th><th class="n">MTBF (h)</th></tr></thead><tbody id="tbMt"></tbody></table></div>
+        <p class="mut" style="font-size:12px" id="mtNota"></p>
+      </div>
+      <div class="card"><h2>Tendencia semanal</h2><div id="hSem"></div></div>
+    </section>
+  </div>
+
+  <div id="imp"></div>
+</main>
+<datalist id="dlUsuarios"></datalist>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script src="shim.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var ses = null, R = null, caso = null, sel = '';
+  var CAMPOS = { desen: 'DESENERGIZACION', energ: 'ENERGIZACION', resp: 'RESPONSABLE', wo: 'WORK_ORDER', desc: 'DESCRIPCION', demoras: 'DEMORAS',
+    causas: 'CAUSAS_INMEDIATAS', pq1: 'PQ1', pq2: 'PQ2', pq3: 'PQ3', pq4: 'PQ4', pq5: 'PQ5', raiz: 'CAUSA_RAIZ', accion: 'ACCION_PREVENTIVA', motivo: 'MOTIVO' };
+  var CLAVE_SRV = { desen: 'desen', energ: 'energ', resp: 'responsable', wo: 'wo', desc: 'descripcion', demoras: 'demoras', causas: 'causas',
+    pq1: 'pq1', pq2: 'pq2', pq3: 'pq3', pq4: 'pq4', pq5: 'pq5', raiz: 'causaRaiz', accion: 'accion', motivo: 'motivo' };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function ls(k, v){ try{ if (v === undefined){ var x = localStorage.getItem(k); return x ? JSON.parse(x) : null; } if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+  function mostrar(t, h){ $('resultado').innerHTML = h ? '<div class="msg ' + t + '">' + h + '</div>' : ''; if (h) window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function iso(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function run(){ return google.script.run; }
+  function num(n){ return n == null ? '' : Math.round(n).toLocaleString('es-CO'); }
+  function h2(n){ return n == null ? '—' : (Math.round(n * 100) / 100).toLocaleString('es-CO'); }
+  function pillEstado(e){ return e ? '<span class="pill p-' + esc(e.split(' ')[0]) + '">' + esc(e) + '</span>' : '<span class="mut">—</span>'; }
+  function porque(c){ return [c.largo ? '<span class="pill p-Sin">Largo</span>' : '', c.repetitivo ? '<span class="pill p-Pendiente">Repetitivo</span>' : ''].join(' ') || '<span class="mut">—</span>'; }
+
+  /* ---------- ingreso ---------- */
+  function entrar(){
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('btnSalir').classList.remove('hidden'); $('btnExcel').classList.remove('hidden');
+    $('sub').textContent = ses.nombre;
+    rango('30'); cargar();
+  }
+  $('btnIngresar').onclick = function(){
+    var u = $('usuario').value.trim(), p = $('pin').value.trim();
+    if (!u || !p){ mostrar('err', 'Escriba usuario y PIN.'); return; }
+    $('btnIngresar').disabled = true;
+    run().withSuccessHandler(function(r){
+      $('btnIngresar').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      ses = r; ses.usuario = r.nombre; ses.pin = p; ls('rev_ses', ses); mostrar('', ''); entrar();
+    }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar.'); }).ingresarSupervisor(u, p);
+  };
+  $('btnSalir').onclick = function(){ ls('rev_ses', null); location.reload(); };
+
+  /* ---------- filtros ---------- */
+  function rango(t){
+    var h = new Date(), d;
+    if (t === 'mes'){ d = new Date(h.getFullYear(), h.getMonth(), 1); }
+    else if (t === 'ant'){ d = new Date(h.getFullYear(), h.getMonth() - 1, 1); h = new Date(h.getFullYear(), h.getMonth(), 0); }
+    else if (t === '30'){ d = new Date(h.getTime() - 29 * 864e5); }
+    else if (t === '7'){ d = new Date(h.getTime() - 6 * 864e5); }
+    else { $('fDesde').value = ''; $('fHasta').value = ''; return; }
+    $('fDesde').value = iso(d); $('fHasta').value = iso(h);
+  }
+  document.querySelector('.rapidos').addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (!b) return; rango(b.dataset.r); cargar(); });
+  $('btnVer').onclick = cargar;
+  $('fReq').onchange = function(){ if (R) pintar(); };
+  $('tabs').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    Array.prototype.forEach.call($('tabs').children, function(x){ x.classList.toggle('sel', x === b); });
+    ['cas','eve','par'].forEach(function(t){ $('t-' + t).classList.toggle('hidden', t !== b.dataset.t); });
+  });
+  function opciones(id, arr){ var v = $(id).value; $(id).innerHTML = '<option value="">' + (id === 'fMina' ? 'Todas' : 'Todos') + '</option>' + (arr || []).map(function(x){ return '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join(''); }
+
+  function cargar(){
+    var f = { desde: $('fDesde').value, hasta: $('fHasta').value, mina: $('fMina').value, equipo: $('fEquipo').value };
+    $('btnVer').disabled = true;
+    run().withSuccessHandler(function(r){
+      $('btnVer').disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      R = r;
+      opciones('fMina', r.minas); opciones('fEquipo', r.equipos);
+      $('bxCarga').classList.toggle('hidden', !r.edita);
+      $('sub').textContent = ses.nombre + ' · actualizado ' + r.generado;
+      $('criterio').textContent = 'RCA requerido: down de ' + r.criterio.horasLargo + ' horas o más (largo), o misma pala con el mismo motivo otra vez antes de ' + r.criterio.diasRepite + ' días (repetitivo; un solo RCA por grupo).';
+      pintar();
+    }).withFailureHandler(function(e){ $('btnVer').disabled = false; mostrar('err', 'No se pudo conectar: ' + esc(e && e.message || '')); })
+      .getDownElectrico(ses.usuario, ses.pin, f);
+  }
+
+  function pintar(){
+    var T = R.totales, E = T.estados || {};
+    $('kpis').innerHTML = [
+      ['Eventos', num(T.eventos), h2(T.horas) + ' horas down'],
+      ['MTTR', h2(T.mttr) + ' h', 'promedio por evento'],
+      ['Casos con RCA', num(T.requieren), T.largos + ' largos · ' + T.repetitivos + ' repetitivos'],
+      ['RCA pendientes', num((E['Pendiente'] || 0) + (E['En elaboración'] || 0)), num(E['En elaboración'] || 0) + ' en elaboración'],
+      ['RCA cerrados', num(E['Cerrado'] || 0), num(E['No corresponde'] || 0) + ' no corresponden'],
+      ['Sin tarea enlazada', num(T.sinTarea), 'eventos']
+    ].map(function(k){ return '<div class="kpi"><h4>' + k[0] + '</h4><b>' + k[1] + '</b><span>' + esc(k[2]) + '</span></div>'; }).join('');
+    var cs = R.casos.filter(function(c){ return !$('fReq').checked || c.requiere; });
+    $('tbCasos').innerHTML = cs.map(function(c){
+      return '<tr data-k="' + esc(c.key) + '"' + (c.key === sel ? ' class="sel"' : '') + '><td>' + esc(c.hasta) + '</td><td><b>' + esc(c.equipo) + '</b></td><td>' + esc(c.mina) + '</td><td>' + esc(c.motivo) +
+        '</td><td class="n">' + c.eventos + '</td><td class="n">' + h2(c.horas) + '</td><td class="n' + (c.largo ? ' crit' : '') + '">' + h2(c.maxHoras) + '</td><td>' + porque(c) +
+        '</td><td class="n">' + c.conTarea + ' / ' + c.eventos + '</td><td>' + pillEstado(c.estado) + '</td></tr>';
+    }).join('') || '<tr><td colspan="10" class="mut">Sin casos con estos filtros.</td></tr>';
+    $('nCasos').textContent = cs.length + ' casos. Toque un caso para ver sus eventos, enlazar las tareas y hacer el RCA.';
+    $('tbEventos').innerHTML = R.eventos.map(function(e){
+      return '<tr><td>' + esc(e.inicio) + '</td><td>' + esc(e.fin) + '</td><td class="n' + (e.largo ? ' crit' : '') + '">' + h2(e.horas) + '</td><td>' + esc(e.equipo) + '</td><td>' + esc(e.mina) + '</td><td>' + esc(e.wo) +
+        '</td><td>' + esc(e.problema) + '</td><td>' + esc(e.motivo) + '</td><td>' + esc(e.resolucion) + '</td><td>' + (e.tarea ? '<span class="pill p-Cerrado">' + esc(e.tarea) + '</span>' : '<span class="pill p-Sin">Sin enlazar</span>') +
+        '</td><td class="mut" style="min-width:280px">' + esc(e.desc) + '</td></tr>';
+    }).join('') || '<tr><td colspan="11" class="mut">Sin eventos en el periodo.</td></tr>';
+    $('hMotivo').innerHTML = hbars(R.porMotivo); $('hEquipo').innerHTML = hbars(R.porEquipo);
+    $('hProblema').innerHTML = hbars(R.porProblema); $('hResol').innerHTML = hbars(R.porResolucion);
+    $('hSem').innerHTML = hbars(R.porSemana.map(function(s){ return { k: 'Semana del ' + s.k, eventos: s.eventos, horas: s.horas }; }), true);
+    $('tbMt').innerHTML = R.porEquipo.map(function(g){ return '<tr><td>' + esc(g.k) + '</td><td class="n">' + g.eventos + '</td><td class="n">' + h2(g.horas) + '</td><td class="n">' + h2(g.mttr) + '</td><td class="n">' + (g.mtbf == null ? '—' : h2(g.mtbf)) + '</td></tr>'; }).join('') || '<tr><td colspan="5" class="mut">Sin datos.</td></tr>';
+    $('mtNota').textContent = 'MTTR = horas down ÷ eventos. MTBF = (horas del periodo − horas down) ÷ eventos, con ' + num(T.horasPeriodo) + ' horas en el periodo consultado. Solo cuenta los down del reporte de PeopleSoft.';
+  }
+  function hbars(arr, orden){
+    var top = (orden ? arr : arr.slice(0, 12)), max = Math.max.apply(null, top.map(function(x){ return x.horas; })) || 1;
+    if (!top.length) return '<p class="mut">Sin datos.</p>';
+    return '<div class="hb">' + top.map(function(x){
+      return '<span class="lab" title="' + esc(x.k) + '">' + esc(x.k) + '</span><div><div class="bar" style="width:' + (x.horas / max * 100) + '%"></div></div><span class="val">' + h2(x.horas) + ' h · ' + x.eventos + ' ev.</span>';
+    }).join('') + '</div>';
+  }
+
+  /* ---------- detalle de un caso ---------- */
+  $('tbCasos').addEventListener('click', function(ev){ var tr = ev.target.closest('tr[data-k]'); if (tr) abrir(tr.dataset.k); });
+  $('btnCerrarDet').onclick = function(){ $('det').classList.add('hidden'); sel = ''; pintar(); };
+  function abrir(k){
+    sel = k; pintar();
+    $('det').classList.remove('hidden'); $('detTit').textContent = 'Cargando…'; $('detSub').textContent = ''; $('detEventos').innerHTML = '';
+    run().withSuccessHandler(function(r){
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      caso = r; pintarCaso();
+      $('det').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }).withFailureHandler(function(){ mostrar('err', 'No se pudo conectar.'); }).getCasoDown(ses.usuario, ses.pin, k);
+  }
+  function dl(pares){ return '<dl>' + pares.filter(function(d){ return d[1]; }).map(function(d){ return '<dt>' + d[0] + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('') + '</dl>'; }
+  function pintarCaso(){
+    var ev = caso.eventos, e0 = ev[0], r = caso.rca, hTot = ev.reduce(function(s, x){ return s + x.horas; }, 0);
+    $('detTit').textContent = e0.equipo + ' · ' + e0.motivo + ' · ' + ev.length + ' evento' + (ev.length > 1 ? 's' : '') + ' · ' + h2(hTot) + ' h';
+    $('detSub').innerHTML = porque({ largo: caso.largo, repetitivo: caso.repetitivo }) + ' ' + esc(e0.mina) + (ev.length > 1 ? ' · del ' + esc(e0.inicio.slice(0, 10)) + ' al ' + esc(ev[ev.length - 1].inicio.slice(0, 10)) : '');
+    $('detEventos').innerHTML = ev.map(function(e, i){
+      var t = e.tareaDet, h = '<div class="card" style="margin-bottom:10px"><div class="grid2"><div><h3 style="margin-top:0">Evento ' + (i + 1) + ' · PeopleSoft</h3>' +
+        dl([['Work order', e.wo + ' · tarea ' + e.nTarea], ['Inicio / fin', e.inicio + ' → ' + e.fin], ['Duración', h2(e.horas) + ' h' + (e.horas >= caso.criterio.horasLargo ? ' (largo)' : '')],
+          ['Problema', e.problema], ['Motivo', e.motivo], ['Resolución', e.resolucion], ['Responsable', e.responsable], ['Descripción', e.desc]]) + '</div><div><h3 style="margin-top:0">Tarea del técnico</h3>';
+      if (t){
+        h += dl([['Tarea', t.id], ['Fecha / turno', t.fecha + ' · ' + t.turno], ['Área / grupo', [t.area, t.grupo ? 'grupo ' + t.grupo : '', t.cuadrilla ? 'cuadrilla ' + t.cuadrilla : ''].filter(Boolean).join(' · ')], ['Supervisor', t.supervisor], ['Técnicos', t.tecnicos],
+          ['Equipo / circuito', [t.equipo, t.circuito].filter(Boolean).join(' · ')], ['Horas', ['parada ' + t.parada, 'desenerg. ' + t.desen, 'entrega ' + t.entrega, 'fin ' + t.fin].filter(function(x){ return /\d/.test(x); }).join(' · ')],
+          ['Min DOWN', t.minDown], ['Taxonomía', t.taxonomia], ['Justificaciones', t.justificaciones], ['Descripción', t.descripcion], ['Línea de tiempo', t.linea]]) +
+          (t.fotos && t.fotos.length ? '<div class="fotos">' + t.fotos.map(function(f){ return '<a href="' + esc(f.ver) + '" target="_blank" rel="noopener"><img src="' + esc(f.url) + '" alt="" loading="lazy"><span>' + esc(f.nota || '') + '</span></a>'; }).join('') + '</div>' : '') +
+          (caso.edita ? '<button type="button" class="lnk" data-quitar="' + esc(e.key) + '">Quitar enlace (no es esta tarea)</button>' : '');
+      } else if (e.tarea){
+        h += '<p>Enlazada a <b>' + esc(e.tarea) + '</b> (no se encontró la tarea).</p>' + (caso.edita ? '<button type="button" class="lnk" data-quitar="' + esc(e.key) + '">Quitar enlace</button>' : '');
+      } else {
+        h += '<p class="crit" style="margin:0">Pendiente de enlazar.</p>';
+        h += e.candidatas.length ? '<div class="tw" style="max-height:220px;margin-top:6px"><table><thead><tr><th>Código</th><th>Fecha</th><th>Turno</th><th>Inicio</th><th class="n">Dif.</th><th>Tipo</th><th>Descripción</th><th></th></tr></thead><tbody>' +
+          e.candidatas.map(function(x){ return '<tr><td><b>' + esc(x.id) + '</b></td><td>' + esc(x.fecha) + '</td><td>' + esc(x.turno) + '</td><td>' + esc(x.inicio) + '</td><td class="n">' + x.dif + ' min</td><td>' + esc(x.tipo) + '</td><td class="mut">' + esc(x.desc) + '</td><td>' +
+            (caso.edita ? '<button type="button" class="lnk" data-enl="' + esc(x.id) + '" data-ev="' + esc(e.key) + '">Enlazar</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+          : '<p class="mut" style="font-size:12px">No hay tareas DOWN de ' + esc(e.equipo) + ' cerca de esa hora.</p>';
+        if (caso.edita) h += '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><input data-cod="' + esc(e.key) + '" placeholder="Código de la tarea, ej: F-PBWNV2-705" style="flex:1;min-width:180px" autocomplete="off"><button type="button" data-btncod="' + esc(e.key) + '">Enlazar código</button></div>';
+      }
+      return h + '</div></div></div>';
+    }).join('');
+    var sug = { wo: ev.map(function(x){ return x.wo; }).join(', '), desc: ev.map(function(x){ return x.inicio + ' (' + h2(x.horas) + ' h): ' + x.desc; }).join('\n'),
+      causas: ev.map(function(x){ return x.motivo; }).filter(function(v, i, a){ return v && a.indexOf(v) === i; }).join(' / ') };
+    Object.keys(CAMPOS).forEach(function(k){
+      var v = r[CAMPOS[k]] || '';
+      if (!v && sug[k]){ v = sug[k]; if ($('s_' + k)) $('s_' + k).textContent = '(sugerido de PeopleSoft)'; }
+      else if ($('s_' + k)) $('s_' + k).textContent = '';
+      if (k === 'resp' && !v) v = 'Insuelectri';
+      $('r_' + k).value = v; $('r_' + k).disabled = !caso.edita;
+    });
+    ['btnGuardarRCA','btnCerrarRCA','btnNoCorr'].forEach(function(id){ $(id).classList.toggle('hidden', !caso.edita); });
+    $('detEstado').textContent = 'Estado: ' + (caso.estado || 'No requiere RCA') + (r.ACTUALIZADO ? ' · última edición ' + r.ACTUALIZADO + ' por ' + r.ACTUALIZADO_POR : '');
+  }
+  $('detEventos').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.enl) enlazar(b.dataset.ev, b.dataset.enl);
+    else if (b.dataset.quitar) enlazar(b.dataset.quitar, 'NINGUNA');
+    else if (b.dataset.btncod){ var inp = document.querySelector('input[data-cod="' + b.dataset.btncod + '"]'), cod = inp ? inp.value.trim() : ''; if (!cod){ mostrar('err', 'Escriba el código de la tarea.'); return; } enlazar(b.dataset.btncod, cod); }
+  });
+  function enlazar(evKey, id){
+    run().withSuccessHandler(function(r){
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      mostrar('ok', id === 'NINGUNA' ? 'Enlace quitado.' : 'Tarea ' + esc(id) + ' enlazada.');
+      var k = caso.key; cargar(); abrir(k);
+    }).withFailureHandler(function(){ mostrar('err', 'No se pudo conectar.'); }).enlazarTareaDown(ses.usuario, ses.pin, evKey, id);
+  }
+  function leerForm(){ var o = {}; Object.keys(CAMPOS).forEach(function(k){ o[CLAVE_SRV[k]] = $('r_' + k).value.trim(); }); return o; }
+  function guardar(estado){
+    var d = leerForm();
+    if (estado) d.estado = estado; else if (!caso.estado || caso.estado === 'Pendiente') d.estado = 'En elaboración';
+    var botones = document.querySelectorAll('#detAcc button'); Array.prototype.forEach.call(botones, function(b){ b.disabled = true; });
+    run().withSuccessHandler(function(r){
+      Array.prototype.forEach.call(botones, function(b){ b.disabled = false; });
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      mostrar('ok', 'Guardado' + (r.estado ? ': ' + esc(r.estado) : '') + '.');
+      var k = caso.key; cargar(); abrir(k);
+    }).withFailureHandler(function(){ Array.prototype.forEach.call(botones, function(b){ b.disabled = false; }); mostrar('err', 'No se pudo conectar.'); })
+      .guardarRCADown(ses.usuario, ses.pin, caso.key, d);
+  }
+  $('btnGuardarRCA').onclick = function(){ guardar(null); };
+  $('btnCerrarRCA').onclick = function(){ guardar('Cerrado'); };
+  $('btnNoCorr').onclick = function(){ if (!$('r_motivo').value.trim()){ mostrar('err', 'Escriba el motivo.'); $('r_motivo').focus(); return; } guardar('No corresponde'); };
+
+  /* ---------- imprimir RCA Express ---------- */
+  $('btnImprimir').onclick = function(){
+    var ev = caso.eventos, e0 = ev[0], f = leerForm(), hTot = ev.reduce(function(s, x){ return s + x.horas; }, 0);
+    var filas = [['EQUIPO', e0.equipo + ' (' + e0.cod + ')'], ['MINA', e0.mina], ['CRITERIO', [caso.largo ? 'Down largo (≥ ' + caso.criterio.horasLargo + ' h)' : '', caso.repetitivo ? 'Repetitivo (' + ev.length + ' eventos)' : ''].filter(Boolean).join(' · ')],
+      ['EVENTOS', ev.map(function(x){ return x.inicio + ' → ' + x.fin + ' · ' + h2(x.horas) + ' h · WO ' + x.wo + (x.tarea ? ' · tarea ' + x.tarea : ''); }).join('\n')],
+      ['HORAS DOWN TOTAL', h2(hTot)], ['PROBLEMA', e0.problema], ['MOTIVO', e0.motivo], ['RESOLUCIÓN', ev.map(function(x){ return x.resolucion; }).filter(function(v, i, a){ return v && a.indexOf(v) === i; }).join(' / ')],
+      ['DESCRIPCIÓN', f.descripcion], ['DESENERGIZACIÓN', f.desen], ['ENERGIZACIÓN', f.energ], ['CAUSAS INMEDIATAS', f.causas],
+      ['POR QUÉ #1', f.pq1], ['POR QUÉ #2', f.pq2], ['POR QUÉ #3', f.pq3], ['POR QUÉ #4', f.pq4], ['POR QUÉ #5', f.pq5],
+      ['CAUSA RAÍZ', f.causaRaiz], ['ACCIÓN PREVENTIVA', f.accion], ['RESPONSABLE', f.responsable], ['WORK ORDER', f.wo], ['DEMORAS', f.demoras]];
+    $('imp').innerHTML = '<h1>RCA EXPRESS – DOWN ELÉCTRICO</h1><table>' + filas.map(function(x){ return '<tr><th>' + x[0] + '</th><td style="white-space:pre-wrap">' + esc(x[1] || '') + '</td></tr>'; }).join('') + '</table>';
+    window.print();
+  };
+
+  /* ---------- Excel ---------- */
+  $('btnExcel').onclick = function(){
+    if (!R || typeof XLSX === 'undefined'){ mostrar('err', 'Primero consulte (y verifique la señal).'); return; }
+    var casoDe = {}; R.casos.forEach(function(c){ casoDe[c.key] = c; });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.eventos.map(function(e){ var c = casoDe[e.grupo] || {}; return {
+      'Inicio': e.inicio, 'Fin': e.fin, 'Horas': e.horas, 'Equipo': e.equipo, 'Código equipo': e.cod, 'Mina': e.mina, 'Work order': e.wo, 'Nº tarea': e.nTarea,
+      'Problema': e.problema, 'Motivo': e.motivo, 'Resolución': e.resolucion, 'Responsable': e.responsable, 'Descripción': e.desc, 'Tarea técnico': e.tarea,
+      'Largo': e.largo ? 'SI' : '', 'Repetitivo': c.repetitivo ? 'SI' : '', 'Eventos del grupo': c.eventos, 'Estado RCA': c.estado || '', 'Causa raíz': c.causaRaiz || '' }; })), 'Eventos');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.casos.map(function(c){ return { 'Último evento': c.hasta, 'Primer evento': c.desde, 'Equipo': c.equipo, 'Mina': c.mina, 'Motivo': c.motivo,
+      'Eventos': c.eventos, 'Horas': c.horas, 'Máx. horas': c.maxHoras, 'Largo': c.largo ? 'SI' : '', 'Repetitivo': c.repetitivo ? 'SI' : '', 'Requiere RCA': c.requiere ? 'SI' : '',
+      'Work orders': c.wos, 'Con tarea': c.conTarea, 'Estado RCA': c.estado, 'Causa raíz': c.causaRaiz }; })), 'Casos');
+    var par = function(a, n){ return a.map(function(g){ var o = {}; o[n] = g.k; o['Eventos'] = g.eventos; o['Horas'] = g.horas; return o; }); };
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(par(R.porMotivo, 'Motivo')), 'Pareto motivo');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.porEquipo.map(function(g){ return { 'Equipo': g.k, 'Eventos': g.eventos, 'Horas': g.horas, 'MTTR (h)': g.mttr, 'MTBF (h)': g.mtbf }; })), 'Equipos MTTR MTBF');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(par(R.porProblema, 'Problema')), 'Pareto problema');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(par(R.porSemana, 'Semana (lunes)')), 'Semanas');
+    XLSX.writeFile(wb, 'Down_electrico_' + ($('fDesde').value || 'inicio') + '_a_' + ($('fHasta').value || 'hoy') + '.xlsx');
+  };
+
+  /* ---------- carga del Excel de PeopleSoft ---------- */
+  $('archivo').onchange = function(){ $('btnCargar').disabled = !this.files.length; $('infoArchivo').textContent = this.files.length ? this.files[0].name : ''; };
+  $('btnCargar').onclick = function(){ if ($('archivo').files.length) leerArchivo($('archivo').files[0]); };
+  function norm(s){ return String(s || '').trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\*+$/, '').trim(); }
+  function fh(v){
+    if (v == null || v === '') return '';
+    if (v instanceof Date) return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate()) + ' ' + pad(v.getHours()) + ':' + pad(v.getMinutes());
+    if (typeof v === 'number'){ var d = new Date(Math.round((v - 25569) * 864e5)); return d.toISOString().slice(0, 16).replace('T', ' '); }
+    var s = String(v).trim(), m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})/);
+    if (m) return m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]) + ' ' + pad(+m[4]) + ':' + m[5];
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*([ap])?/i);
+    if (!m) return '';
+    var h = +m[4]; if (m[6] && /p/i.test(m[6]) && h < 12) h += 12; if (m[6] && /a/i.test(m[6]) && h === 12) h = 0;
+    return m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]) + ' ' + pad(h) + ':' + m[5];
+  }
+  /* columnas: Mina, Equipo, Work Order, Nº Tarea, Task Description, Problema, Descr, Gp Problemas, Motivo, Descr, Resolución, Descr, Start, End, duration, Descr */
+  function eventosDe(ws){
+    var a = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+    for (var i = 0; i < Math.min(15, a.length); i++){
+      var h = a[i].map(norm), iWo = h.indexOf('WORK ORDER'), iEq = h.indexOf('EQUIPO');
+      if (iWo < 0 || iEq < 0) continue;
+      var I = function(n){ return h.indexOf(n); }, sig = function(n){ var k = h.indexOf(n); return k >= 0 && h[k + 1] === 'DESCR' ? k + 1 : -1; };
+      var c = { mina: I('MINA'), equipo: iEq, wo: iWo, tarea: h.findIndex(function(x){ return /^N.?\s*TAREA$/.test(x); }), desc: h.findIndex(function(x){ return /^TASK DESCRIPTION/.test(x); }),
+        problema: I('PROBLEMA'), problemaDesc: sig('PROBLEMA'), grupo: I('GP PROBLEMAS'), motivo: I('MOTIVO'), motivoDesc: sig('MOTIVO'),
+        resolucion: I('RESOLUCION'), resolucionDesc: sig('RESOLUCION'), inicio: I('TASK ACTUAL START DATE TIME'), fin: I('TASK ACTUAL END DATE TIME'),
+        horas: I('TASK DURATION'), responsable: sig('TASK DURATION') };
+      return a.slice(i + 1).filter(function(r){ return String(r[c.wo]).trim() && String(r[c.equipo]).trim(); }).map(function(r){
+        var g = function(k){ return c[k] >= 0 ? r[c[k]] : ''; };
+        return { mina: String(g('mina')).trim(), equipo: String(g('equipo')).trim(), wo: String(g('wo')).trim(), tarea: String(g('tarea')).trim(), desc: String(g('desc')).trim(),
+          problema: String(g('problema')).trim(), problemaDesc: String(g('problemaDesc')).trim(), grupo: String(g('grupo')).trim(), motivo: String(g('motivo')).trim(),
+          motivoDesc: String(g('motivoDesc')).trim(), resolucion: String(g('resolucion')).trim(), resolucionDesc: String(g('resolucionDesc')).trim(),
+          inicio: fh(g('inicio')), fin: fh(g('fin')), horas: g('horas'), responsable: String(g('responsable')).trim() };
+      });
+    }
+    return null;
+  }
+  function leerArchivo(file){
+    if (typeof XLSX === 'undefined'){ mostrar('err', 'No cargó el lector de Excel. Revise la señal y recargue.'); return; }
+    mostrar('info', 'Leyendo ' + esc(file.name) + '…');
+    var fr = new FileReader();
+    fr.onload = function(){
+      var wb;
+      try{ wb = XLSX.read(new Uint8Array(fr.result), { type: 'array', cellDates: true }); }catch(e){ mostrar('err', 'No se pudo leer el archivo: ' + esc(e.message)); return; }
+      var ev = null;
+      wb.SheetNames.some(function(n){ ev = eventosDe(wb.Sheets[n]); return ev; });
+      if (!ev){ mostrar('err', 'No encontré la tabla de PeopleSoft (columnas Mina, Equipo, Work Order…). ¿Es el Excel del correo "Eventos down de distribución"?'); return; }
+      if (!ev.length){ mostrar('info', 'El archivo no trae eventos.'); return; }
+      $('btnCargar').disabled = true;
+      run().withSuccessHandler(function(r){
+        $('btnCargar').disabled = false; $('archivo').value = ''; $('infoArchivo').textContent = '';
+        if (!r.ok){ mostrar('err', esc(r.error)); return; }
+        mostrar('ok', '<b>' + esc(file.name) + '</b>: ' + r.nuevos + ' eventos nuevos, ' + r.repetidos + ' ya estaban' + (r.malos ? ', ' + r.malos + ' filas sin work order, equipo o fecha' : '') + '.');
+        cargar();
+      }).withFailureHandler(function(e){ $('btnCargar').disabled = false; mostrar('err', 'No se pudo cargar: ' + esc(e && e.message || '')); })
+        .cargarDownElectrico(ses.usuario, ses.pin, ev);
+    };
+    fr.readAsArrayBuffer(file);
+  }
+
+  run().withSuccessHandler(function(x){ $('dlUsuarios').innerHTML = x.usuarios.map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); }).getInicioRevision();
+  var guardada = ls('rev_ses');
+  if (guardada && guardada.usuario && guardada.pin){
+    run().withSuccessHandler(function(r){ if (r.ok){ ses = r; ses.usuario = r.nombre; ses.pin = guardada.pin; entrar(); } else ls('rev_ses', null); }).withFailureHandler(function(){}).ingresarSupervisor(guardada.usuario, guardada.pin);
+  }
+})();
+</script>
+</body>
+</html>
