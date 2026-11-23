@@ -184,6 +184,7 @@
         <button type="button" id="btnTodo">Ver todos</button>
         <button type="button" id="btnKml">Descargar KML (Google Earth)</button>
         <button type="button" id="btnXls">Descargar Excel</button>
+        <button type="button" id="btnPdf">PDF del mapa</button>
       </div>
       <div class="ley"><span><i style="border-color:#F28401"></i>Confirmado</span><span><i style="border-color:#2563eb;border-top-style:dashed"></i>Por confirmar</span><span><i style="border-color:#9ca3af;border-top-style:dashed"></i>Anulado</span><span class="mut" id="resMapa"></span></div>
     </section>
@@ -195,6 +196,7 @@
       <dl id="detDl"></dl>
       <div class="fotos" id="detFotos"></div>
       <div id="detPts" class="pts"></div>
+      <div class="btns"><button type="button" id="btnPdfUno">PDF de este cable</button></div>
       <div id="detRev" class="hidden">
         <label for="revNota">Nota de revisión</label>
         <input id="revNota" placeholder="Obligatoria para anular">
@@ -615,6 +617,126 @@
       XLSX.writeFile(wb, 'Cable_enterrado_' + hoy() + '.xlsx');
     }, function(){ mostrar('err', 'No cargó el generador de Excel. Revise la señal.'); });
   };
+
+  /* ---------- PDF del mapa (imagen satelital + recorrido + tablas) ---------- */
+  var COL_EST = { 'Confirmado': '#F28401', 'Por confirmar': '#2563eb', 'Anulado': '#9ca3af' };
+  function libsPdf(){
+    return (window.jspdf ? Promise.resolve() : js('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'))
+      .then(function(){ return window.jspdf.jsPDF.API.autoTable ? null : js('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'); });
+  }
+  function mundo(lat, lon, z){
+    var n = 256 * Math.pow(2, z), s = Math.sin(lat * Math.PI / 180);
+    return { x: (lon + 180) / 360 * n, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n };
+  }
+  function tesela(z, x, y){
+    var url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + z + '/' + y + '/' + x;
+    var ctl = window.AbortController ? new AbortController() : null, t = setTimeout(function(){ if (ctl) ctl.abort(); }, 15000);
+    return fetch(url, { mode: 'cors', signal: ctl ? ctl.signal : undefined }).then(function(r){ if (!r.ok) throw 0; return r.blob(); })
+      .then(function(b){ clearTimeout(t); return createImageBitmap(b); }).catch(function(){ clearTimeout(t); return null; });
+  }
+  /* dibuja los cables en un canvas W x H; devuelve { canvas, z, mpp, faltan } */
+  function lienzoMapa(lst, W, H, uno){
+    var pts = []; lst.forEach(function(c){ c.puntos.forEach(function(p){ pts.push(p); }); });
+    var la = pts.map(function(p){ return p.lat; }), lo = pts.map(function(p){ return p.lon; });
+    var n = Math.max.apply(null, la), s = Math.min.apply(null, la), e = Math.max.apply(null, lo), w = Math.min.apply(null, lo);
+    /* zoom continuo: el recorrido ocupa ~75% de la hoja, mostrando al menos 150 m de ancho */
+    var a0 = mundo(n, w, 0), b0 = mundo(s, e, 0), latC = (n + s) / 2;
+    var z = Math.log(Math.min(W * 0.75 / Math.max(b0.x - a0.x, 1e-12), H * 0.75 / Math.max(b0.y - a0.y, 1e-12))) / Math.LN2;
+    var zMax = Math.log(W * 156543.03392 * Math.cos(latC * Math.PI / 180) / 150) / Math.LN2;
+    z = Math.max(3, Math.min(z, zMax));
+    var zt = Math.max(3, Math.min(18, Math.round(z))), k = Math.pow(2, z - zt), ts = 256 * k;
+    var c0 = mundo(latC, (e + w) / 2, z), x0 = c0.x - W / 2, y0 = c0.y - H / 2;
+    var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var g = cv.getContext('2d'); g.fillStyle = '#d1d5db'; g.fillRect(0, 0, W, H);
+    var tx0 = Math.floor(x0 / ts), ty0 = Math.floor(y0 / ts), tx1 = Math.floor((x0 + W) / ts), ty1 = Math.floor((y0 + H) / ts), lista = [];
+    for (var ty = ty0; ty <= ty1; ty++) for (var tx = tx0; tx <= tx1; tx++) lista.push([tx, ty]);
+    return Promise.all(lista.map(function(t){ return tesela(zt, t[0], t[1]).then(function(img){ return { t: t, img: img }; }); })).then(function(res){
+      var faltan = 0;
+      res.forEach(function(r){ if (r.img) g.drawImage(r.img, r.t[0] * ts - x0, r.t[1] * ts - y0, ts + 0.5, ts + 0.5); else faltan++; });
+      var P = function(p){ var q = mundo(p.lat, p.lon, z); return [q.x - x0, q.y - y0]; };
+      g.lineJoin = 'round'; g.lineCap = 'round';
+      lst.forEach(function(c){
+        var col = COL_EST[c.estado] || '#2563eb', xy = c.puntos.map(P);
+        g.setLineDash([]); g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 9; g.beginPath(); xy.forEach(function(q, i){ i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke();
+        g.setLineDash(c.estado === 'Confirmado' ? [] : [16, 12]); g.strokeStyle = col; g.lineWidth = 5; g.stroke(); g.setLineDash([]);
+        c.puntos.forEach(function(p, i){
+          var q = xy[i], esp = p.tipo !== 'Recorrido', r = esp ? 8 : 4;
+          g.beginPath(); g.arc(q[0], q[1], r, 0, 2 * Math.PI); g.fillStyle = col; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+          if (uno){ g.font = 'bold 20px Arial'; g.lineWidth = 4; g.strokeStyle = '#000'; g.fillStyle = '#fff'; g.strokeText(String(i + 1), q[0] + 10, q[1] - 8); g.fillText(String(i + 1), q[0] + 10, q[1] - 8); }
+        });
+        var mid = xy[Math.floor((xy.length - 1) / 2)], txt = 'Cable ' + c.cable;
+        g.font = 'bold 22px Arial'; var tw = g.measureText(txt).width;
+        var bx = Math.min(Math.max(mid[0] - tw / 2 - 8, 4), W - tw - 20), by = Math.min(Math.max(mid[1] + 14, 4), H - 34);
+        g.fillStyle = 'rgba(255,255,255,.92)'; g.fillRect(bx, by, tw + 16, 30); g.strokeStyle = col; g.lineWidth = 3; g.strokeRect(bx, by, tw + 16, 30);
+        g.fillStyle = '#111'; g.fillText(txt, bx + 8, by + 23);
+      });
+      /* escala y norte */
+      var mpp = 156543.03392 * Math.cos(latC * Math.PI / 180) / Math.pow(2, z);
+      var objetivo = W / 6 * mpp, paso = [1, 2, 5], dist = 1;
+      for (var p10 = 1; p10 < 1e6; p10 *= 10) paso.forEach(function(k){ if (k * p10 <= objetivo) dist = k * p10; });
+      var lpx = dist / mpp, sx = 30, sy = H - 40;
+      g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(sx - 12, sy - 34, lpx + 24, 52);
+      g.fillStyle = '#111'; g.fillRect(sx, sy, lpx, 8); g.fillStyle = '#fff'; g.fillRect(sx + lpx / 2, sy + 1, lpx / 2 - 1, 6);
+      g.fillStyle = '#111'; g.font = 'bold 18px Arial'; g.fillText(dist >= 1000 ? dist / 1000 + ' km' : dist + ' m', sx, sy - 10);
+      g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(W - 70, 16, 50, 70);
+      g.fillStyle = '#111'; g.beginPath(); g.moveTo(W - 45, 24); g.lineTo(W - 57, 60); g.lineTo(W - 45, 52); g.lineTo(W - 33, 60); g.closePath(); g.fill();
+      g.font = 'bold 18px Arial'; g.fillText('N', W - 51, 80);
+      return { canvas: cv, z: z, mpp: mpp, faltan: faltan, total: lista.length };
+    });
+  }
+  function hacerPdf(lst, uno){
+    if (!lst.length){ mostrar('err', 'No hay levantamientos con puntos para el PDF.'); return; }
+    if (!navigator.onLine){ mostrar('err', 'El PDF necesita señal para bajar la imagen satelital.'); return; }
+    mostrar('info', 'Armando el PDF (bajando la imagen satelital)…');
+    libsPdf().then(function(){ return lienzoMapa(lst, 2216, 1320, uno); }).then(function(M){
+      var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      var tit = uno ? 'Cable enterrado ' + lst[0].cable : 'Cables enterrados';
+      var filtro = uno ? [lst[0].mina, lst[0].circuito, lst[0].estado].filter(Boolean).join(' · ') :
+        [$('fMina').value ? $('fMina').options[$('fMina').selectedIndex].text : 'Todas las minas', $('fEstado').value || 'Por confirmar y confirmados', $('fCable').value ? 'cable ' + $('fCable').value : ''].filter(Boolean).join(' · ');
+      doc.setFillColor(31, 41, 55); doc.rect(0, 0, 297, 14, 'F');
+      doc.setTextColor(242, 132, 1); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text('INSUELECTRI', 10, 9.3);
+      doc.setTextColor(255, 255, 255); doc.text(tit, 42, 9.3);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.text('Generado ' + ahora().slice(0, 16) + (ses ? ' por ' + ses.usuario : ''), 287, 9.3, { align: 'right' });
+      doc.setTextColor(17, 24, 39); doc.setFontSize(9);
+      var lon = lst.reduce(function(s, c){ return s + c.longitud; }, 0);
+      doc.text(filtro + '   |   ' + lst.length + ' cable(s) · ' + Math.round(lon).toLocaleString('es-CO') + ' m', 10, 19.5);
+      doc.addImage(M.canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 10, 22, 277, 165);
+      doc.setDrawColor(156, 163, 175); doc.rect(10, 22, 277, 165);
+      var y = 192, x = 10;
+      [['Confirmado', [242, 132, 1]], ['Por confirmar', [37, 99, 235]], ['Anulado', [156, 163, 175]]].forEach(function(l){
+        doc.setDrawColor(l[1][0], l[1][1], l[1][2]); doc.setLineWidth(1.2); doc.line(x, y - 1, x + 8, y - 1); doc.setLineWidth(0.2);
+        doc.text(l[0], x + 10, y); x += 34;
+      });
+      doc.setFillColor(80, 80, 80); doc.circle(x + 2, y - 1.2, 1.6, 'F'); doc.text('Punto especial (inicio, fin, cruce, empalme…)', x + 5, y);
+      doc.setFontSize(7.5); doc.setTextColor(75, 85, 99);
+      doc.text('Precisión del GPS del celular: 3 a 10 m. Sirve para ubicar y señalizar; verificar antes de excavar.' + (M.faltan ? ' Faltaron ' + M.faltan + ' de ' + M.total + ' teselas de imagen.' : ''), 10, 198);
+      doc.text('Imagen: Esri World Imagery · Sistema Red eléctrica Insuelectri', 287, 198, { align: 'right' });
+      /* tablas */
+      doc.addPage('a4', 'landscape'); doc.setTextColor(17, 24, 39);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(uno ? 'Datos del cable ' + lst[0].cable : 'Resumen de cables', 10, 14);
+      var cab = { fillColor: [31, 41, 55], textColor: 255, fontStyle: 'bold' }, cuerpo = { fontSize: 8, cellPadding: 1.4 };
+      doc.autoTable({ startY: 18, head: [['Cable', 'Mina', 'Circuito / sector', 'Tipo de cable', 'Estado', 'Puntos', 'Long. (m)', 'Prof. (m)', 'Fecha', 'Levantó', 'Revisó']],
+        body: lst.map(function(c){ return [c.cable, c.mina, c.circuito, c.tipoCable, c.estado, c.puntos.length, Math.round(c.longitud).toLocaleString('es-CO'),
+          c.profMin !== '' && c.profMin != null ? (c.profMin === c.profMax ? c.profMin : c.profMin + ' a ' + c.profMax) : '', c.fecha, c.reportadoPor, c.revisadoPor || '']; }),
+        headStyles: cab, styles: cuerpo, margin: { left: 10, right: 10 } });
+      lst.forEach(function(c){
+        var acum = 0, filas = c.puntos.map(function(p, i){ if (i) acum += distM(c.puntos[i - 1], p);
+          return [i + 1, p.tipo, Math.round(acum), p.lat.toFixed(6), p.lon.toFixed(6), p.acc != null ? Math.round(p.acc) : '', p.prof == null ? '' : p.prof, p.nota || '']; });
+        if (!uno) filas = filas.filter(function(f, i){ return i === 0 || i === filas.length - 1 || f[1] !== 'Recorrido'; });
+        var yy = doc.lastAutoTable.finalY + 8; if (yy > 180){ doc.addPage('a4', 'landscape'); yy = 14; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.text('Cable ' + c.cable + (uno ? ' · puntos levantados' : ' · inicio, fin y puntos especiales') + (c.obs ? '   (Obs.: ' + String(c.obs).slice(0, 120) + ')' : ''), 10, yy);
+        doc.autoTable({ startY: yy + 3, head: [['#', 'Tipo', 'Dist. acum. (m)', 'Latitud', 'Longitud', '± m', 'Prof. (m)', 'Nota']], body: filas,
+          headStyles: cab, styles: cuerpo, columnStyles: { 0: { cellWidth: 10 }, 7: { cellWidth: 90 } }, margin: { left: 10, right: 10 } });
+      });
+      var np = doc.getNumberOfPages();
+      for (var i = 1; i <= np; i++){ doc.setPage(i); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128); doc.text('Página ' + i + ' de ' + np, 287, 206, { align: 'right' }); }
+      doc.save((uno ? 'Cable_enterrado_' + String(lst[0].cable).replace(/[^\w-]+/g, '_') : 'Cables_enterrados') + '_' + hoy() + '.pdf');
+      mostrar('ok', 'PDF descargado' + (M.faltan ? ' (faltaron ' + M.faltan + ' teselas de imagen; revise la señal)' : '') + '.');
+    }).catch(function(){ mostrar('err', 'No se pudo armar el PDF. Revise la señal e intente de nuevo.'); });
+  }
+  $('btnPdf').onclick = function(){ hacerPdf(filtrados(), false); };
+  $('btnPdfUno').onclick = function(){ var c = D && D.cables.find(function(x){ return x.id === selId; }); if (c) hacerPdf([c], true); };
 
   /* ---------- señal ---------- */
   function pintarRed(){ var on = navigator.onLine; $('net').textContent = on ? 'Con señal' : 'Sin señal'; $('net').className = 'net ' + (on ? 'on' : 'off'); if (on) procesarCola(); }
