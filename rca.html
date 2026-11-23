@@ -148,7 +148,7 @@
 
     <section id="t-cas">
       <div class="tw"><table><thead><tr>
-        <th>Fecha</th><th>Hora</th><th>Turno</th><th>Grupo</th><th>Equipo</th><th>Categoría</th><th>Mina</th>
+        <th>Fecha</th><th>Hora</th><th>Hora fin</th><th>Turno</th><th>Grupo</th><th>Equipo</th><th>Categoría</th><th>Mina</th>
         <th class="n">Real</th><th class="n">Objetivo</th><th class="n">Exceso</th><th class="n">% crít.</th><th>Tarea / RCA</th><th>Estado RCA</th>
       </tr></thead><tbody id="tbCasos"></tbody></table></div>
       <p class="mut" id="nCasos" style="font-size:12px"></p>
@@ -301,10 +301,10 @@
       var tar = c.tarea ? '<span class="pill p-Cerrado" title="' + esc(c.tarea) + '">' + esc(c.tarea) + '</span>' + (c.tipoDistinto ? ' <span class="pill" title="El técnico la registró como ' + esc(c.tipoTarea) + '">otro tipo</span>' : '')
         : c.numRca ? '<span class="pill p-Cerrado">RCA #' + esc(c.numRca) + '</span>'
         : (c.critico ? (c.deExcel ? '<span class="pill p-Sin">Sin RCA en Excel</span>' : '<span class="pill p-Sin">Pendiente de enlazar</span>') : '<span class="mut">—</span>');
-      return '<tr data-k="' + esc(c.key) + '"' + (c.key === sel ? ' class="sel"' : '') + '><td>' + esc(c.fecha) + '</td><td>' + esc(c.hora) + '</td><td>' + esc(c.turno) + '</td><td>' + esc(c.crew) + '</td><td>' + esc(c.equipo) +
+      return '<tr data-k="' + esc(c.key) + '"' + (c.key === sel ? ' class="sel"' : '') + '><td>' + esc(c.fecha) + '</td><td>' + esc(c.hora) + '</td><td class="mut" title="Calculada: hora + minutos reales">' + esc(horaFin(c)) + '</td><td>' + esc(c.turno) + '</td><td>' + esc(c.crew) + '</td><td>' + esc(c.equipo) +
         '</td><td>' + esc(c.categoria) + '</td><td>' + esc(c.minaDr) + '</td><td class="n">' + dec(c.real) + '</td><td class="n">' + dec(c.obj) +
         '</td><td class="n' + (c.critico ? ' crit' : '') + '">' + dec(c.exceso) + '</td><td class="n' + (c.critico ? ' crit' : '') + '">' + dec(c.pct) + '%</td><td>' + tar + '</td><td>' + pillEstado(c.estado) + '</td></tr>';
-    }).join('') || '<tr><td colspan="13" class="mut">Sin casos con estos filtros.</td></tr>';
+    }).join('') || '<tr><td colspan="14" class="mut">Sin casos con estos filtros.</td></tr>';
     $('nCasos').textContent = R.casos.length + ' casos' + (R.hayMas ? ' (se muestran los 600 más recientes; filtre por fechas)' : '') + '. Toque un caso para ver el detalle y hacer el RCA.';
     var fila = function(g){ return '<tr><td>' + esc(NOM_MINA[g.k] || g.k) + '</td><td class="n">' + g.casos + '</td><td class="n">' + g.criticos + '</td><td class="n">' +
       (g.casos ? (g.criticos / g.casos * 100).toFixed(1) : '0') + '%</td><td class="n"><b>' + num(g.minExcCrit) + '</b></td><td class="n">' + num(g.minExc) + '</td></tr>'; };
