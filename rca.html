@@ -333,6 +333,14 @@
       $('det').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }).withFailureHandler(function(){ mostrar('err', 'No se pudo conectar.'); }).getCasoRCA(ses.usuario, ses.pin, k);
   }
+  /* hora de inicio + minutos reales = hora aproximada de fin (guía); si pasa la medianoche marca +1 día */
+  function horaFin(c){
+    var m = String(c.hora || '').match(/^(\d{1,2}):(\d{2})/), r = Number(c.real);
+    if (!m || !isFinite(r)) return '';
+    var t = (+m[1]) * 60 + (+m[2]) + Math.round(r), d = Math.floor(t / 1440); t = t % 1440;
+    var hh = Math.floor(t / 60), mm = t % 60;
+    return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm + (d ? ' (+' + d + ' día' + (d > 1 ? 's' : '') + ')' : '');
+  }
   function fmtCorte(){ var c = (R && R.corte) || ''; return c ? c.slice(8, 10) + '-' + c.slice(5, 7) : ''; }
   function hm(s){ var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? pad(+m[1]) + ':' + m[2] : ''; }
   function sugerencias(t){
@@ -421,7 +429,7 @@
   $('btnExcel').onclick = function(){
     if (!R || typeof XLSX === 'undefined'){ mostrar('err', 'Primero consulte (y verifique la señal).'); return; }
     var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.casos.map(function(c){ var x = c.rca || { pq: [] }; return { 'Fecha': c.fecha, 'Hora': c.hora, 'Turno': c.turno, 'Equipo': c.equipo, 'Código': c.cod,
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(R.casos.map(function(c){ var x = c.rca || { pq: [] }; return { 'Fecha': c.fecha, 'Hora': c.hora, 'Hora fin (calculada)': horaFin(c), 'Turno': c.turno, 'Equipo': c.equipo, 'Código': c.cod,
       'Categoría': c.categoria, 'Mina': c.minaDr, 'Grupo': c.crew, 'Real (min)': c.real, 'Objetivo (min)': c.obj, 'Exceso (min)': c.exceso, '% crítico': c.pct,
       'Crítico': c.critico ? 'SI' : 'NO', 'RCA Excel #': c.numRca, 'Estado RCA': c.estado, 'Tarea técnico': c.tarea, 'Enlace': c.enlace,
       'Desenergización': x.desen || '', 'Energización': x.ener || '', 'Descripción del evento': x.desc || '', 'Causas inmediatas': x.inm || '',
@@ -450,14 +458,14 @@
   function consolidado(r){
     var casos = r.casos.filter(function(c){ return c.critico; }).sort(function(a, b){ return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
     var COL = [['FECHA', 12], ['EQUIPO', 9], ['TIPO', 16], ['DETALLE', 26], ['Min_real', 9], ['MINA', 12], ['TURNO', 8], ['GRUPO', 8],
-      ['Tiempo_objetivo', 10], ['Exceso(min)', 10], ['% Criticidad', 10], ['CRITICIDAD', 11], ['Inicio de Down', 10], ['Desenergización', 11], ['Energización', 11],
+      ['Tiempo_objetivo', 10], ['Exceso(min)', 10], ['% Criticidad', 10], ['CRITICIDAD', 11], ['Inicio de Down', 10], ['Fin de Down (calculado)', 12], ['Desenergización', 11], ['Energización', 11],
       ['ID', 6], ['Descripcion del Evento', 60], ['Causas inmediatas (Down Time Reason)', 45], ['Por qué? #1', 40], ['Por qué? #2', 40], ['Por qué? #3', 40],
       ['Por qué? #4', 40], ['Por qué? #5', 40], ['Causa Raíz', 50], ['Accion Preventiva', 50], ['Responsable', 14], ['WORK ORDER', 12], ['DEMORAS', 40],
       ['Estado RCA', 14], ['Tarea técnico', 16], ['Motivo', 30]];
     var filas = casos.map(function(c){
       var x = c.rca || { pq: ['', '', '', '', ''] }, p = c.fecha.split('-');
       return [new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])), /^\d+$/.test(c.cod) ? +c.cod : c.cod, c.modelo || '', c.categoria, c.real, c.minaDr, c.turno, /^\d+$/.test(c.crew) ? +c.crew : c.crew,
-        c.obj, c.exceso, c.pct / 100, 'CRITICO', c.hora, x.desen || '', x.ener || '', c.numRca ? +c.numRca : null, x.desc || '', x.inm || '',
+        c.obj, c.exceso, c.pct / 100, 'CRITICO', c.hora, horaFin(c), x.desen || '', x.ener || '', c.numRca ? +c.numRca : null, x.desc || '', x.inm || '',
         x.pq[0] || '', x.pq[1] || '', x.pq[2] || '', x.pq[3] || '', x.pq[4] || '', x.raiz || '', x.accion || '', x.resp || '', x.wo || '', x.demoras || '',
         c.estado || '', c.tarea || '', x.motivo || ''];
     });
