@@ -124,5 +124,57 @@
   window.addEventListener('load', function(){
     if (navigator.onLine) llamar('getInicioCajas', [], function(x){ try{ localStorage.setItem('insp_inicio', JSON.stringify(x)); }catch(e){} }, null);
   });
+  /* ---------- lista de usuarios para ingresar (en el celular el datalist no se despliega) ---------- */
+  function selectorUsuario(){
+    var inp = document.querySelector('input#usuario[list]'); if (!inp || inp.dataset.lista) return;
+    var dl = document.getElementById(inp.getAttribute('list'));
+    inp.dataset.lista = '1'; inp.readOnly = true; inp.setAttribute('autocomplete', 'off');
+    inp.placeholder = 'Toque para escoger su nombre'; inp.style.cursor = 'pointer';
+    var css = document.createElement('style');
+    css.textContent = '#selUs{position:fixed;inset:0;z-index:9998;background:rgba(17,24,39,.55);display:flex;align-items:flex-end;justify-content:center}' +
+      '#selUs .caja{background:#fff;color:#111;width:100%;max-width:520px;max-height:82vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;font:15px system-ui,sans-serif}' +
+      '@media(min-width:700px){#selUs{align-items:center}#selUs .caja{border-radius:16px}}' +
+      '#selUs .cab{display:flex;gap:8px;align-items:center;padding:14px 14px 8px}#selUs .cab b{flex:1;font-size:16px}' +
+      '#selUs .x{border:0;background:#f3f4f6;border-radius:8px;padding:8px 12px;font:600 14px system-ui}' +
+      '#selUs input{margin:0 14px 8px;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:16px}' +
+      '#selUs ul{list-style:none;margin:0;padding:0 8px 12px;overflow:auto}' +
+      '#selUs li button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #f1f5f9;background:#fff;padding:13px 10px;font:15px system-ui;color:#111}' +
+      '#selUs li button:active{background:#fff4e6}#selUs .vacio{padding:14px;color:#6b7280}#selUs .otro{color:#F28401;font-weight:700}';
+    document.head.appendChild(css);
+    function nombres(){ return dl ? Array.prototype.map.call(dl.options, function(o){ return o.value; }).filter(Boolean) : []; }
+    function norm(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+    function elegir(v){
+      inp.value = v; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
+      cerrar(); var pin = document.getElementById('pin'); if (pin) pin.focus();
+    }
+    function cerrar(){ var x = document.getElementById('selUs'); if (x) x.remove(); }
+    function abrir(){
+      if (document.getElementById('selUs')) return;
+      var ov = document.createElement('div'); ov.id = 'selUs';
+      ov.innerHTML = '<div class="caja" role="dialog" aria-label="Escoja su usuario"><div class="cab"><b>Escoja su nombre</b><button type="button" class="x">Cerrar</button></div>' +
+        '<input type="search" placeholder="Buscar: escriba parte del nombre" autocomplete="off"><ul></ul></div>';
+      document.body.appendChild(ov);
+      var q = ov.querySelector('input'), ul = ov.querySelector('ul');
+      function pintar(){
+        var t = norm(q.value), l = nombres(), f = l.filter(function(n){ return !t || norm(n).indexOf(t) >= 0; });
+        ul.innerHTML = (l.length ? f.map(function(n){ return '<li><button type="button">' + n.replace(/[<>&"]/g, '') + '</button></li>'; }).join('') ||
+          '<li class="vacio">Ningún nombre coincide.</li>' : '<li class="vacio">La lista de usuarios todavía no ha cargado. Revise la señal, o escriba su nombre completo.</li>') +
+          '<li><button type="button" class="otro" data-otro="1">Escribir mi nombre a mano</button></li>';
+      }
+      ul.addEventListener('click', function(e){
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.otro){ cerrar(); inp.readOnly = false; inp.placeholder = 'Escriba su nombre completo'; inp.focus(); return; }
+        elegir(b.textContent);
+      });
+      q.addEventListener('input', pintar);
+      ov.querySelector('.x').onclick = cerrar;
+      ov.addEventListener('click', function(e){ if (e.target === ov) cerrar(); });
+      pintar();
+      if (window.matchMedia && matchMedia('(min-width:700px)').matches) q.focus();
+    }
+    inp.addEventListener('click', function(){ if (inp.readOnly) abrir(); });
+    inp.addEventListener('keydown', function(e){ if (inp.readOnly && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); abrir(); } });
+  }
+  document.addEventListener('DOMContentLoaded', selectorUsuario);
   if ('serviceWorker' in navigator) window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 })();
