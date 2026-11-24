@@ -14,6 +14,7 @@
         clearTimeout(t);
         if (!o || !o.ok) throw new Error((o && o.error) || 'Respuesta inválida');
         if (GUARDAR[fn]) try{ localStorage.setItem('api_' + fn, JSON.stringify(o.r)); }catch(e){}
+        if (MENU_FN[fn] && o.r && o.r.ok && o.r.modulos) guardarMenu(o.r);
         if (ok) setTimeout(function(){ ok(o.r); });
       })
       .catch(function(e){
@@ -37,6 +38,53 @@
   Object.defineProperty(window.google.script, 'run', { get: runner });
   /* menú común de la app */
   var PAGINAS = [['index.html', 'Tareas'], ['cajas.html', 'Cajas/torres'], ['inventario.html', 'Inventario'], ['consulta.html', 'Consulta'], ['revision.html', 'Revisión'], ['formato.html', 'Formato diario'], ['pm.html', 'PM palas'], ['cables.html', 'Cables'], ['enterrado.html', 'Cable enterrado'], ['reportes.html', 'Reportes'], ['rca.html', 'RCA'], ['down.html', 'Down eléctrico']];
+  /* menú según el rol (hoja PERMISOS): se guarda al ingresar y se refresca al abrir con señal */
+  var MENU_FN = { ingresar: 1, ingresarSupervisor: 1, misModulos: 1 }, SESIONES = ['tar_sesion', 'rev_ses', 'red_sesion'];
+  /* sesión abierta en este celular: la del usuario del menú si sigue abierta, si no la primera que haya */
+  function sesion(nombre){
+    var hay = SESIONES.map(leer).filter(function(x){ return x && x.usuario && x.pin; });
+    return hay.filter(function(x){ return nombre && x.usuario === nombre; })[0] || (nombre ? null : hay[0]) || null;
+  }
+  function refrescar(){
+    var m = leer('menu_mod'), s = (m && sesion(m.nombre)) || sesion();
+    if (s && navigator.onLine) llamar('misModulos', [s.usuario, s.pin], null, null);
+  }
+  function guardarMenu(r){
+    try{ localStorage.setItem('menu_mod', JSON.stringify({ nombre: r.nombre, rol: r.rol, modulos: r.modulos })); }catch(e){}
+    pintarMenu();
+  }
+  try{
+    var quitar = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function(k){
+      quitar.call(this, k);
+      if (this === window.localStorage && SESIONES.indexOf(k) >= 0){ var m = leer('menu_mod'); if (m && !sesion(m.nombre)){ quitar.call(this, 'menu_mod'); pintarMenu(); refrescar(); } }
+    };
+  }catch(e){}
+  function visibles(){
+    var m = leer('menu_mod');
+    if (m && m.modulos) return PAGINAS.filter(function(p){ return m.modulos.indexOf(p[0]) >= 0; });
+    if (!sesion()) return PAGINAS.filter(function(p){ return p[0] === 'index.html' || p[0] === 'revision.html'; });
+    return PAGINAS;
+  }
+  function pintarMenu(){
+    var nav = document.querySelector('.appnav'); if (!nav) return;
+    var aqui = location.pathname.split('/').pop() || 'index.html';
+    nav.innerHTML = visibles().map(function(p){ return '<a href="' + p[0] + '"' + (p[0] === aqui ? ' class="on"' : '') + '>' + p[1] + '</a>'; }).join('');
+    var m = leer('menu_mod'), bl = document.getElementById('appBloqueo');
+    var bloquear = m && m.modulos && m.modulos.indexOf(aqui) < 0;
+    if (bloquear && !bl){
+      var ir = PAGINAS.filter(function(p){ return m.modulos.indexOf(p[0]) >= 0; })[0];
+      bl = document.createElement('div'); bl.id = 'appBloqueo';
+      bl.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(17,24,39,.92);display:flex;align-items:center;justify-content:center;padding:20px;font:15px system-ui,sans-serif';
+      bl.innerHTML = '<div style="background:#fff;color:#111;border-radius:14px;padding:22px;max-width:360px;text-align:center">' +
+        '<div style="font-size:34px">🔒</div><p style="margin:8px 0 4px;font-weight:700">Este módulo no está habilitado para su usuario</p>' +
+        '<p style="margin:0 0 16px;color:#6b7280">' + String(m.nombre || '').replace(/[<>&]/g, '') + (m.rol ? ' · ' + String(m.rol).replace(/[<>&]/g, '') : '') + '</p>' +
+        (ir ? '<a href="' + ir[0] + '" style="display:block;background:#F28401;color:#fff;text-decoration:none;padding:11px;border-radius:9px;font-weight:700;margin-bottom:8px">Ir a ' + ir[1] + '</a>' : '') +
+        '<button type="button" id="appCambiar" style="width:100%;padding:10px;border-radius:9px;border:1px solid #d1d5db;background:#fff;font:600 14px system-ui">Ingresar con otro usuario</button></div>';
+      document.body.appendChild(bl);
+      document.getElementById('appCambiar').onclick = function(){ SESIONES.concat(['menu_mod']).forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); };
+    } else if (!bloquear && bl) bl.remove();
+  }
   var SOLO_SENAL = { 'consulta.html': 1, 'revision.html': 1, 'formato.html': 1, 'reportes.html': 1, 'rca.html': 1 };
   document.addEventListener('DOMContentLoaded', function(){
     var aqui = location.pathname.split('/').pop() || 'index.html';
@@ -60,9 +108,10 @@
     var mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = '#F28401';
     if (!document.querySelector('link[rel="icon"]')){ var fi = document.createElement('link'); fi.rel = 'icon'; fi.href = 'icono-192.png'; document.head.appendChild(fi); }
     var bar = document.createElement('div'); bar.className = 'appbar';
-    bar.innerHTML = '<img src="logo.png" alt="Insuelectri"><nav class="appnav">' +
-      PAGINAS.map(function(p){ return '<a href="' + p[0] + '"' + (p[0] === aqui ? ' class="on"' : '') + '>' + p[1] + '</a>'; }).join('') + '</nav>';
+    bar.innerHTML = '<img src="logo.png" alt="Insuelectri"><nav class="appnav"></nav>';
     document.body.insertBefore(bar, document.body.firstChild);
+    pintarMenu();
+    refrescar();
     var n = bar;
     if (SOLO_SENAL[aqui]){
       var av = document.createElement('div'); av.className = 'appaviso'; av.hidden = navigator.onLine;
