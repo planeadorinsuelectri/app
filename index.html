@@ -170,6 +170,10 @@
     <div class="hora"><input id="hFin" type="time"><button type="button" data-ahora="hFin">Ahora</button></div>
     <p class="ayuda" id="ayTiempo"></p>
 
+    <div id="bxEncFalla" class="hidden">
+      <label>¿Encontró alguna falla? <span class="mut">(cable, caja, torre u otro elemento dañado)</span></label>
+      <div class="seg" id="encFalla"><button type="button" data-v="Si">SÍ</button><button type="button" data-v="No">NO</button></div>
+    </div>
     <div id="bxFalla" class="bloque hidden">
       <div id="bxTax" class="hidden">
         <label>¿Qué falló?</label>
@@ -280,7 +284,7 @@
   'use strict';
   var K_COLA = 'tar_cola', K_LISTAS = 'tar_listas_', K_SES = 'tar_sesion', K_TURNO = 'tar_turno', K_HECHAS = 'tar_hechas';
   var ses = null, L = null, enviando = false;
-  var st = { turno:'', clase:'', estado:'', cambioPlan:'', cableCola:'', taxComp:'', fotos: [] };
+  var st = { turno:'', clase:'', estado:'', cambioPlan:'', cableCola:'', encFalla:'', taxComp:'', fotos: [] };
   var NOM = { CABLE:'Cable', CAJA:'Caja', TORRE:'Torre' };
   var $ = function(id){ return document.getElementById(id); };
 
@@ -313,6 +317,7 @@
   seg('estado', 'estado', pintarClase);
   seg('cambioPlan', 'cambioPlan', function(){ $('bxCambio').classList.toggle('hidden', st.cambioPlan !== 'Si'); });
   seg('cableCola', 'cableCola', function(){ $('bxCola').classList.toggle('hidden', st.cableCola !== 'Si'); });
+  seg('encFalla', 'encFalla', pintarTipo);
 
   function chips(id, arr){
     $(id).innerHTML = (arr || []).map(function(v){ return '<button type="button" data-v="' + esc(v) + '">' + esc(v) + '</button>'; }).join('');
@@ -369,6 +374,9 @@
 
   /* ---------- DOWN / NO DOWN ---------- */
   function esElec(){ return st.clase === 'DOWN' && /DOWN EL[EÉ]CTRICO/i.test($('tipo').value); }
+  /* falla encontrada en un trabajo que no es DOWN ELÉCTRICO (solo con taxonomía) */
+  function conFallaEnc(){ return !esElec() && !!(L && L.tax) && st.encFalla === 'Si'; }
+  function pideFalla(){ return esElec() || conFallaEnc(); }
   function esVoladura(){ return /VOLADURA/i.test($('tipo').value); }
   function pintarTipos(){
     var v = $('tipo').value;
@@ -387,8 +395,9 @@
   function pintarTipo(){
     var elec = esElec();
     $('bxElec').classList.toggle('hidden', !elec);
-    $('bxFalla').classList.toggle('hidden', !elec);
     var hayTax = !!(L && L.tax);
+    $('bxEncFalla').classList.toggle('hidden', elec || !hayTax || !st.clase || !$('tipo').value);
+    $('bxFalla').classList.toggle('hidden', !(elec || conFallaEnc()));
     $('bxTax').classList.toggle('hidden', !hayTax); $('bxFallaVieja').classList.toggle('hidden', hayTax);
     var vol = esVoladura();
     $('ayDesen').textContent = vol ? 'En voladura: hora en que producción entrega el equipo.' : '';
@@ -459,7 +468,7 @@
     $('ayRol').textContent = 'Inventario: ' + [it[5], it[6]].filter(Boolean).join(' · ') + (d ? ' (' + d + ')' : '');
   });
   function leerTax(){
-    if (!esElec() || !(L && L.tax) || !st.taxComp) return null;
+    if (!pideFalla() || !(L && L.tax) || !st.taxComp) return null;
     var txt = !$('taxPosTxt').classList.contains('hidden');
     return { comp: st.taxComp, num: $('taxNum').value.trim().toUpperCase(), rol: $('taxRol').value, elem: $('taxElem').value,
       pos: st.taxComp === 'OTRO' ? '' : (txt ? $('taxPosTxt').value.trim() : $('taxPos').value), modo: st.taxComp === 'OTRO' ? '' : $('taxModo').value };
@@ -621,7 +630,7 @@
       hParada: esElec() ? $('hParada').value : '', hInicio: $('hInicio').value,
       hDesen: st.clase === 'DOWN' ? $('hDesen').value : '', hEntrega: st.clase === 'DOWN' ? $('hEntrega').value : '', hFin: $('hFin').value,
       componente: esElec() && !(L && L.tax) ? $('componente').value : '', modo: esElec() && !(L && L.tax) ? $('modo').value : '',
-      tax: leerTax(), fotos: st.fotos.slice(),
+      encontroFalla: esElec() ? '' : (L && L.tax ? st.encFalla : ''), tax: leerTax(), fotos: st.fotos.slice(),
       justificaciones: st.clase === 'DOWN' ? chipsSel('justificaciones') : [],
       justMin: st.clase === 'DOWN' ? leerJustMin() : {},
       lineaTiempo: st.clase === 'DOWN' ? $('lineaTiempo').value.trim() : '',
@@ -649,7 +658,8 @@
       var x = absMin(p[ord[i][0]]), y = absMin(p[ord[i][1]]);
       if (x != null && y != null && y < x) return 'Revise las horas: ' + ord[i][2] + '.';
     }
-    if (elec && fin && L && L.tax){
+    if (!elec && L && L.tax && !p.encontroFalla) return 'Diga si encontró alguna falla.';
+    if (((elec && fin) || p.encontroFalla === 'Si') && L && L.tax){
       var t = p.tax;
       if (!t) return 'Diga qué falló: cable, caja, torre u otro.';
       if (t.comp !== 'OTRO' && !t.num) return 'Escriba el número (si no lo sabe escriba SIN NUMERO).';
@@ -743,8 +753,8 @@
     $('hechas').innerHTML = h.map(function(x){ return '<div class="item"><span>' + esc(x.hora) + ' · ' + (x.clase === 'DOWN' ? '<b>DOWN</b> · ' : '') + esc(x.txt) + '</span></div>'; }).join('');
   }
   function limpiarTarea(){
-    st.clase = ''; st.estado = ''; st.cambioPlan = ''; st.cableCola = '';
-    ['clase','estado','cambioPlan','cableCola'].forEach(function(id){ marcar(id, ''); });
+    st.clase = ''; st.estado = ''; st.cambioPlan = ''; st.cableCola = ''; st.encFalla = '';
+    ['clase','estado','cambioPlan','cableCola','encFalla'].forEach(function(id){ marcar(id, ''); });
     ['equipo','circuito','descripcion','hParada','hInicio','hDesen','hEntrega','hFin','lineaTiempo','descCambio','minCambio','inspeccionCola','destinoRetiro']
       .forEach(function(id){ $(id).value = ''; });
     $('componente').value = ''; $('modo').value = '';

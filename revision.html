@@ -388,9 +388,10 @@
       .map(function(j){ return '<button type="button"' + (just.indexOf(j) >= 0 ? ' class="sel"' : '') + (editable(t) ? '' : ' disabled') + '>' + esc(j) + '</button>'; }).join('');
     var down = clase === 'DOWN', elec = down && /EL[EÉ]CTRICO/i.test(valCampo(t, 'tipo'));
     var conTax = !!(ses.tax && (valCampo(t, 'taxComp') || !t.COMPONENTE_FALLA || cambios[t.ID] && cambios[t.ID].campos && 'taxComp' in cambios[t.ID].campos));
+    var encontrada = !elec && !!(ses.tax && valCampo(t, 'taxComp'));   // falla encontrada en un trabajo planeado
     f.querySelectorAll('[data-solo]').forEach(function(el){
-      var s = el.dataset.solo, ver = s === 'down' ? down : s === 'vieja' ? elec && !conTax : s === 'tax' ? elec && conTax :
-        s === 'taxcable' ? elec && conTax && valCampo(t, 'taxComp') === 'CABLE' : elec;
+      var s = el.dataset.solo, ver = s === 'down' ? down : s === 'vieja' ? elec && !conTax : s === 'tax' ? (elec && conTax) || encontrada :
+        s === 'taxcable' ? ((elec && conTax) || encontrada) && valCampo(t, 'taxComp') === 'CABLE' : elec;
       el.classList.toggle('hidden', !ver);
     });
     var info = [];

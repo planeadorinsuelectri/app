@@ -155,6 +155,17 @@
         <h2>Eventos <span class="mut" id="nLista"></span></h2>
         <div id="lista"></div>
       </div>
+      <div class="card">
+        <h2>Fallas encontradas en otros trabajos <span class="mut" id="nEnc"></span></h2>
+        <p class="nota" style="margin-top:0">Daños que el técnico encontró y reparó en movimientos, cable eléctrico, voladuras, PM u otras tareas. No causaron un DOWN eléctrico, por eso no suman minutos de falla.</p>
+        <div class="grid2">
+          <div><h3>Por tipo de trabajo</h3><div id="eTipo"></div></div>
+          <div><h3>Por componente</h3><div id="eComp"></div></div>
+          <div><h3>Por elemento</h3><div id="eElem"></div></div>
+          <div><h3>Por modo de falla</h3><div id="eModo"></div></div>
+        </div>
+        <div id="eLista" style="margin-top:10px"></div>
+      </div>
     </section>
   </div>
 </main>
@@ -227,7 +238,7 @@
       var v = $('fTipo').value;
       $('fTipo').innerHTML = '<option value="">Todos los DOWN</option>' + r.tipos.map(function(t){ return '<option' + (t === v ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
       $('sub').textContent = ses.nombre + ' · actualizado ' + r.generado;
-      pintarPareto(); pintarFallas();
+      pintarPareto(); pintarFallas(); pintarEncontradas();
     }).withFailureHandler(function(e){ $('btnVer').disabled = false; mostrar('err', 'No se pudo conectar: ' + esc(e && e.message || '')); })
       .getReportes(ses.usuario, ses.pin, f);
   }
@@ -294,12 +305,12 @@
   }
 
   /* ---------- fallas DOWN eléctrico ---------- */
-  function hbars(arr, campo){
+  function hbars(arr, campo, sinMin){
     var top = arr.slice(0, 10), max = Math.max.apply(null, top.map(function(x){ return x[campo]; })) || 1;
     if (!top.length) return '<p class="mut">Sin datos.</p>';
     return '<div class="hb">' + top.map(function(x){
       return '<span class="lab" title="' + esc(x.k) + '">' + esc(x.k) + '</span><div><div class="bar" style="width:' + (x[campo] / max * 100) + '%"></div></div>' +
-        '<span class="val">' + x.eventos + ' ev · ' + num(x.min) + ' min</span>';
+        '<span class="val">' + x.eventos + ' ev' + (sinMin ? '' : ' · ' + num(x.min) + ' min') + '</span>';
     }).join('') + '</div>' + (arr.length > 10 ? '<p class="nota">y ' + (arr.length - 10) + ' más</p>' : '');
   }
   function svgMeses(M){
@@ -347,6 +358,25 @@
     }).join('') || '<p class="mut">Sin eventos DOWN eléctrico en el periodo.</p>';
   }
 
+  function pintarEncontradas(){
+    var E = R.encontradas || { eventos: 0, porTipo: [], porComp: [], porElem: [], porModo: [], lista: [] };
+    $('nEnc').textContent = '(' + E.eventos + ')';
+    $('eTipo').innerHTML = hbars(E.porTipo, 'eventos', true); $('eComp').innerHTML = hbars(E.porComp, 'eventos', true);
+    $('eElem').innerHTML = hbars(E.porElem, 'eventos', true); $('eModo').innerHTML = hbars(E.porModo, 'eventos', true);
+    $('eLista').innerHTML = E.lista.map(function(x){
+      var fallo = [x.comp, x.num ? '#' + x.num : '', x.elem, x.modo].filter(Boolean).join(' · ');
+      var dl = [['Tipo de trabajo', x.tipo + (x.down === 'SI' ? ' (con DOWN)' : '')], ['Equipo reportado', x.equipoTxt !== x.equipo ? x.equipoTxt : ''], ['Mina / área', x.mina + ' · ' + x.area],
+        ['Turno / grupo', [x.turno, x.grupo].filter(Boolean).join(' · ')], ['Circuito', x.circuito], ['Componente', x.comp], ['Número', x.num], ['Rol', x.rol], ['Elemento', x.elem],
+        ['Posición', x.pos], ['Modo de falla', x.modo], ['Mecanismo', x.mec], ['Causa', x.causa], ['Detección', x.det], ['Actividad', x.act], ['Impacto', x.imp], ['Tarea', x.id], ['Origen', x.origen]]
+        .filter(function(d){ return d[1]; }).map(function(d){ return '<dt>' + d[0] + '</dt><dd style="margin:0">' + esc(d[1]) + '</dd>'; }).join('');
+      return '<details><summary><b>' + esc(x.fecha) + '</b><span>' + esc(x.equipo || 'Sin equipo') + '</span><span class="mut">' + esc(fallo) + '</span>' +
+        '<span class="pill">' + esc(x.tipo) + '</span>' + (x.fotos.length ? '<span class="pill">' + x.fotos.length + ' foto' + (x.fotos.length > 1 ? 's' : '') + '</span>' : '') + '</summary>' +
+        '<div class="det"><dl>' + dl + '</dl>' + (x.desc ? '<b>Descripción</b>\n' + esc(x.desc) : '') +
+        (x.fotos.length ? '<div class="fotos">' + x.fotos.map(function(f){ return '<a href="' + esc(f.ver) + '" target="_blank" rel="noopener"><img src="' + esc(f.url) + '" alt="" loading="lazy"><span>' + esc(f.nota || '') + '</span></a>'; }).join('') + '</div>' : '') +
+        '</div></details>';
+    }).join('') || '<p class="mut">Ninguna en el periodo. Se registran desde la app con la pregunta "¿Encontró alguna falla?".</p>';
+  }
+
   /* ---------- Excel ---------- */
   $('btnExcel').onclick = function(){
     if (!R || typeof XLSX === 'undefined'){ mostrar('err', 'Primero consulte (y verifique la señal).'); return; }
@@ -359,6 +389,10 @@
       'Equipo': x.equipo, 'Equipo reportado': x.equipoTxt, 'Circuito': x.circuito, 'Min DOWN': x.min, 'Componente': x.comp, 'Número': x.num, 'Rol': x.rol, 'Elemento': x.elem, 'Posición': x.pos,
       'Modo de falla': x.modo, 'Mecanismo': x.mec, 'Causa': x.causa, 'Detección': x.det, 'Actividad': x.act, 'Impacto': x.imp, 'Justificaciones': x.just,
       'Descripción': x.desc, 'Fotos': x.fotos.map(function(f){ return f.ver; }).join(' '), 'Origen': x.origen }; })), 'Fallas DOWN');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet((R.encontradas ? R.encontradas.lista : []).map(function(x){ return { 'Fecha': x.fecha, 'Mina': x.mina, 'Área': x.area,
+      'Turno': x.turno, 'Grupo': x.grupo, 'Tipo de trabajo': x.tipo, 'Con DOWN': x.down, 'Equipo': x.equipo, 'Equipo reportado': x.equipoTxt, 'Circuito': x.circuito, 'Componente': x.comp,
+      'Número': x.num, 'Rol': x.rol, 'Elemento': x.elem, 'Posición': x.pos, 'Modo de falla': x.modo, 'Mecanismo': x.mec, 'Causa': x.causa, 'Detección': x.det, 'Actividad': x.act,
+      'Impacto': x.imp, 'Descripción': x.desc, 'Fotos': x.fotos.map(function(f){ return f.ver; }).join(' '), 'Tarea': x.id, 'Origen': x.origen }; })), 'Fallas encontradas');
     XLSX.writeFile(wb, 'Reportes_' + ($('fMina').value || 'todas') + '_' + ($('fDesde').value || 'inicio') + '_a_' + ($('fHasta').value || 'hoy') + '.xlsx');
   };
 
