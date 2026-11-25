@@ -255,6 +255,8 @@
       if (!r.ok){ mostrar('err', esc(r.error)); $('lista').innerHTML = ''; return; }
       R = r;
       $('notaMios').classList.toggle('hidden', !!r.todo);
+      $('fTipo').closest('div').classList.toggle('hidden', r.enr === false);
+      if (r.enr === false) $('fTipo').value = '';
       $('bxSup').classList.toggle('hidden', !r.todo);
       if (r.todo){
         var v = $('fSup').value, ns = {};
