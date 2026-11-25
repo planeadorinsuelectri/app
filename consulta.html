@@ -37,6 +37,9 @@
   .tabs .n{background:var(--nodbg);color:var(--nod);border-radius:99px;padding:1px 7px;font-size:11px;margin-left:4px}
   .barra{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:12px}
   .barra4{grid-template-columns:2fr 1fr 1fr 1.4fr}
+  #btnHist{background:var(--acc);color:#111;border:none;border-radius:8px;padding:8px 12px;font:700 13px system-ui,sans-serif;cursor:pointer}
+  #btnHist:disabled{opacity:.6}
+  #notaHist{margin:0 0 8px;color:var(--tx)}
   input,select{width:100%;font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--ln);border-radius:8px;padding:9px 10px}
   /* tarjeta de circuito */
   .circ{background:var(--card);border:1px solid var(--ln);border-radius:12px;margin-bottom:14px;overflow:hidden}
@@ -161,9 +164,16 @@
   </section>
 
   <section id="t-mov" hidden>
+    <div class="barra barra4">
+      <input id="qMov" placeholder="Número de cable, caja o torre…">
+      <select id="fMovElem"><option value="">Todos</option><option value="CABLE">Cables</option><option value="CAJA">Cajas</option><option value="TORRE">Torres</option></select>
+      <select id="fMovTec"><option value="">Todos los técnicos</option></select>
+      <button type="button" id="btnHist">Historial completo del número</button>
+    </div>
+    <div class="cnt" id="notaHist" hidden></div>
     <div class="panel"><table class="resp"><thead><tr>
       <th>Fecha</th><th>Técnico</th><th>Elemento</th><th>Acción</th><th>Antes</th><th>Ahora</th><th>Obs.</th>
-    </tr></thead><tbody id="tbMov"></tbody></table><div class="cnt">Últimos 400 movimientos</div></div>
+    </tr></thead><tbody id="tbMov"></tbody></table><div class="cnt" id="cntMov">Últimos 400 movimientos</div></div>
   </section>
 
   <section id="t-ale" hidden>
@@ -192,7 +202,7 @@
         if (r.pinRequerido){ $('pinBox').hidden = false; $('app').hidden = true; $('sub').textContent = ''; return; }
         $('sub').textContent = r.error || 'Error'; return;
       }
-      D = r; $('pinBox').hidden = true; $('app').hidden = false;
+      D = r; H = null; $('pinBox').hidden = true; $('app').hidden = false;
       $('selMina').innerHTML = r.minas.map(function(m){ return '<option value="' + esc(m.codigo) + '"' + (m.codigo === r.codigoMina ? ' selected' : '') + '>' + esc(m.nombre) + '</option>'; }).join('');
       $('sub').textContent = r.mina + ' · actualizado ' + r.generado;
       pintar();
@@ -373,7 +383,7 @@
       if (x.caja) det.push('Caja ' + esc(x.caja));
       if (x.rep) det.push('<span class="pill rep">Repetido</span>');
       if (x.obs) det.push('<span class="mut">' + esc(x.obs) + '</span>');
-      return '<tr><td data-l="Elemento">' + NOM[x.elemento] + '</td><td class="n" data-l="Número">' + esc(x.numero) +
+      return '<tr><td data-l="Elemento">' + NOM[x.elemento] + '</td><td class="n" data-l="Número"><a href="#" data-hist="' + esc(x.numero) + '" data-el="' + esc(x.elemento) + '" title="Ver historial">' + esc(x.numero) + '</a>' +
         '</td><td data-l="Tipo">' + esc(x.tipo || '—') + '</td><td data-l="Ubicación">' + esc(x.ubicacion || '—') +
         '</td><td data-l="Pala">' + esc(x.equipo || '—') + '</td><td>' + pill(x.estado) +
         '</td><td>' + det.join(' · ') + '</td><td data-l="Actualizado" class="mut">' + esc(x.act) + (x.tec ? '<br>' + esc(x.tec) : '') + '</td></tr>';
@@ -381,16 +391,53 @@
     $('cntInv').textContent = it.length + ' registros' + (it.length > max ? ' (mostrando ' + max + ', afine la búsqueda)' : '');
   }
 
+  var H = null;   // historial completo del número buscado
   function mov(){
-    $('tbMov').innerHTML = D.movs.map(function(m){
-      return '<tr><td class="mut" data-l="Fecha">' + esc(m.fecha) + '</td><td data-l="Técnico">' + esc(m.tecnico) + (m.turno ? ' <span class="mut">(' + esc(m.turno) + ')</span>' : '') +
+    var tec = {}; D.movs.forEach(function(m){ if (m.tecnico) tec[m.tecnico] = 1; });
+    var sel = $('fMovTec').value;
+    $('fMovTec').innerHTML = '<option value="">Todos los técnicos</option>' + Object.keys(tec).sort().map(function(t){ return '<option' + (t === sel ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
+    var q = norm($('qMov').value), fe = $('fMovElem').value, ft = $('fMovTec').value;
+    var base = H && H.clave === q && H.elem === fe ? H.movs : D.movs;
+    var L = base.filter(function(m){
+      if (q && norm(m.numero) !== q && norm(m.numero).indexOf(q) < 0) return false;
+      if (fe && m.elemento !== fe) return false;
+      if (ft && m.tecnico !== ft) return false;
+      return true;
+    });
+    $('notaHist').hidden = !(H && base === H.movs);
+    if (H && base === H.movs) $('notaHist').textContent = 'Historial completo de ' + $('qMov').value.trim() + ': ' + H.movs.length + ' movimiento(s), del más reciente al más antiguo.';
+    $('cntMov').textContent = base === D.movs ? (q || fe || ft ? L.length + ' de los últimos 400 movimientos' : 'Últimos 400 movimientos') + '. Para ver todo lo de un número use "Historial completo".' : L.length + ' movimientos';
+    $('tbMov').innerHTML = L.map(function(m){
+      return '<tr><td class="mut" data-l="Fecha">' + esc(m.fecha) + (m.registro && m.registro !== m.fecha ? '<br><small>reg. ' + esc(m.registro) + '</small>' : '') + '</td><td data-l="Técnico">' + esc(m.tecnico) + (m.turno ? ' <span class="mut">(' + esc(m.turno) + ')</span>' : '') +
         '</td><td class="n" data-l="Elemento">' + esc(NOM[m.elemento] || m.elemento) + ' ' + esc(m.numero) +
-        '</td><td data-l="Acción">' + esc(m.accion) + '</td><td data-l="Antes">' + (m.eAntes ? pill(m.eAntes) + ' ' : '') + esc(m.uAntes || '—') +
+        '</td><td data-l="Acción">' + esc(m.accion) + '</td><td data-l="Antes">' + (m.eAntes ? pill(m.eAntes) + ' ' : '') + esc(m.uAntes || '—') + (m.eqAntes && m.eqAntes !== 'Acopio' ? ' / ' + esc(m.eqAntes) : '') +
         '</td><td data-l="Ahora">' + pill(m.eNuevo) + ' ' + esc(m.uNueva) + (m.equipo && m.equipo !== 'Acopio' ? ' / ' + esc(m.equipo) : '') +
         (m.alerta ? '<br><span class="pill rep">' + esc(m.alerta) + '</span>' : '') +
         '</td><td class="mut" data-l="Obs.">' + esc(m.obs) + '</td></tr>';
-    }).join('') || '<tr><td colspan="7" class="vacio">Aún no hay movimientos reportados</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="vacio">' + (base === D.movs && !q ? 'Aún no hay movimientos reportados' : 'Sin movimientos con estos filtros') + '</td></tr>';
   }
+  function historial(){
+    var n = $('qMov').value.trim(); if (!n){ $('qMov').focus(); return; }
+    var fe = $('fMovElem').value;
+    $('btnHist').disabled = true; $('btnHist').textContent = 'Buscando…';
+    google.script.run.withSuccessHandler(function(r){
+      $('btnHist').disabled = false; $('btnHist').textContent = 'Historial completo del número';
+      if (!r.ok){ $('cntMov').textContent = r.error || 'Error'; return; }
+      H = { clave: norm(n), elem: fe, movs: r.movs }; mov();
+    }).withFailureHandler(function(e){ $('btnHist').disabled = false; $('btnHist').textContent = 'Historial completo del número'; $('cntMov').textContent = 'Sin conexión: ' + (e && e.message ? e.message : ''); })
+      .getHistorialElemento(pin, mina, n, fe);
+  }
+  $('btnHist').onclick = historial;
+  $('qMov').addEventListener('keydown', function(ev){ if (ev.key === 'Enter') historial(); });
+  ['qMov','fMovElem','fMovTec'].forEach(function(id){ $(id).addEventListener('input', mov); });
+  /* desde Buscar: tocar el número abre su historial */
+  $('tbInv').addEventListener('click', function(ev){
+    var a = ev.target.closest('[data-hist]'); if (!a) return;
+    ev.preventDefault();
+    $('qMov').value = a.dataset.hist; $('fMovElem').value = a.dataset.el || ''; $('fMovTec').value = '';
+    var b = $('tabs').querySelector('[data-t=mov]'); if (b) b.click();
+    historial();
+  });
 
   function ale(){
     var grupos = {};
