@@ -172,7 +172,8 @@
     <div class="card">
       <h2>Estado de vehículos</h2>
       <p class="mut" style="font-size:13px;margin:0 0 8px">Marque las camionetas que no se van a usar. Mientras estén en mantenimiento o stand by no salen como "sin preoperacional".</p>
-      <input id="vBuscar" placeholder="Buscar placa…" style="margin-bottom:8px">
+      <p id="vResumen" style="font-size:13px;margin:0 0 8px"></p>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><input id="vBuscar" placeholder="Buscar placa…" style="flex:1"><label class="chk" style="white-space:nowrap"><input type="checkbox" id="vPend"> Solo sin preoperacional</label></div>
       <div id="vLista"></div>
     </div>
   </section>
@@ -376,13 +377,17 @@
     }).withFailureHandler(function(){ $('vLista').innerHTML = ''; mostrar('err', 'No se pudo conectar.'); }).getVehiculos(ses.usuario, ses.pin);
   }
   $('vBuscar').oninput = function(){ if (V) pintarVeh(); };
+  $('vPend').onchange = function(){ if (V) pintarVeh(); };
   function pintarVeh(){
     var q = $('vBuscar').value.trim().toUpperCase();
-    var L = V.lista.filter(function(v){ return !q || v.placa.toUpperCase().indexOf(q) >= 0; });
+    var L = V.lista.filter(function(v){ return (!q || v.placa.toUpperCase().indexOf(q) >= 0) && (!$('vPend').checked || v.sinPreop.length); });
+    var nP = V.lista.filter(function(v){ return v.sinPreop.length; }).length;
+    $('vResumen').innerHTML = nP ? '<b class="crit">' + nP + '</b> camioneta' + (nP > 1 ? 's' : '') + ' sin preoperacional hoy. Si no se van a usar, márquelas en mantenimiento o stand by.' : 'Hoy todas las camionetas tienen su preoperacional.';
     $('vLista').innerHTML = L.map(function(v){
       var e = v.est, est = v.fuera ? e.estado : 'Operativa', ab = vAbierto === v.placa;
       var h = '<div class="item' + (ab ? ' abierto' : '') + '" data-p="' + esc(v.placa) + '"><div class="t"><span>🚙</span><b>' + esc(v.placa) + '</b>' +
-        '<span class="pill ' + (v.fuera ? 'p-Pendiente' : 'p-Cerrado') + '">' + esc(est) + '</span></div>' +
+        '<span class="pill ' + (v.fuera ? 'p-Pendiente' : 'p-Cerrado') + '">' + esc(est) + '</span>' +
+        (v.sinPreop.length ? '<span class="pill p-Sin">Sin preoperacional · ' + esc(v.sinPreop.join(' y ')) + '</span>' : '') + '</div>' +
         '<div class="s">' + esc([nomMina(v.mina, v.lugar), e && e.estado !== 'Operativa' ? (v.fuera ? 'desde ' + fmt(e.desde) + (e.hasta ? ' hasta ' + fmt(e.hasta) : ' sin fecha de regreso') : (e.desde > V.hoy ? e.estado + ' desde ' + fmt(e.desde) : '')) : '', e && e.nota].filter(Boolean).join(' · ')) + '</div>';
       if (ab){
         h += '<div class="grid" style="margin-top:8px"><div><label>Estado</label><select id="vEst">' + V.estados.map(function(s){ return '<option' + (s === est ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></div>' +
