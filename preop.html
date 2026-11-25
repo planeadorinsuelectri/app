@@ -243,7 +243,7 @@
       entrar();
     }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar.'); }).ingresarPreop(u, p);
   };
-  $('btnSalir').onclick = function(){ ls('preop_ses', null); location.reload(); };
+  $('btnSalir').onclick = function(){ ['preop_ses','rev_ses','tar_sesion','red_sesion','menu_mod'].forEach(function(k){ ls(k, null); }); location.reload(); };
 
   /* ---------- aprobar ---------- */
   $('fFecha').value = hoy(); $('cFecha').value = hoy(); $('cTurno').value = turnoAhora();
