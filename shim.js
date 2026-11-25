@@ -37,7 +37,7 @@
   window.google = { script: {} };
   Object.defineProperty(window.google.script, 'run', { get: runner });
   /* menú común de la app */
-  var PAGINAS = [['index.html', 'Tareas'], ['cajas.html', 'Cajas/torres'], ['inventario.html', 'Inventario'], ['consulta.html', 'Consulta'], ['revision.html', 'Revisión'], ['formato.html', 'Formato diario'], ['pm.html', 'PM palas'], ['cables.html', 'Cables'], ['enterrado.html', 'Cable enterrado'], ['reportes.html', 'Reportes'], ['rca.html', 'RCA'], ['down.html', 'Down eléctrico']];
+  var PAGINAS = [['index.html', 'Tareas'], ['cajas.html', 'Cajas/torres'], ['inventario.html', 'Inventario'], ['consulta.html', 'Consulta'], ['revision.html', 'Revisión'], ['formato.html', 'Formato diario'], ['pm.html', 'PM palas'], ['cables.html', 'Cables'], ['enterrado.html', 'Cable enterrado'], ['reportes.html', 'Reportes'], ['rca.html', 'RCA'], ['down.html', 'Down eléctrico'], ['preop.html', 'Preoperacionales']];
   /* menú según el rol (hoja PERMISOS): se guarda al ingresar y se refresca al abrir con señal */
   var MENU_FN = { ingresar: 1, ingresarSupervisor: 1, misModulos: 1 }, SESIONES = ['tar_sesion', 'rev_ses', 'red_sesion'];
   /* sesión abierta en este celular: la del usuario del menú si sigue abierta, si no la primera que haya */
@@ -63,7 +63,7 @@
   function visibles(){
     var m = leer('menu_mod');
     if (m && m.modulos) return PAGINAS.filter(function(p){ return m.modulos.indexOf(p[0]) >= 0; });
-    if (!sesion()) return PAGINAS.filter(function(p){ return p[0] === 'index.html' || p[0] === 'revision.html'; });
+    if (!sesion()) return PAGINAS.filter(function(p){ return p[0] === 'index.html' || p[0] === 'revision.html' || p[0] === 'preop.html'; });
     return PAGINAS;
   }
   function pintarMenu(){
