@@ -112,7 +112,8 @@
   <nav class="tabs" id="tabs">
     <button type="button" data-t="lle" class="sel">Llenar</button>
     <button type="button" data-t="apr">Aprobar</button>
-    <button type="button" data-t="cam">Cámaras enrollacables</button>
+    <button type="button" data-t="cam">Cámaras</button>
+    <button type="button" data-t="veh">Vehículos</button>
   </nav>
 
   <section id="t-lle">
@@ -124,7 +125,7 @@
   </section>
 
   <section class="card hidden" id="login">
-    <h2>Ingreso de supervisores</h2>
+    <h2>Ingreso para aprobar</h2>
     <label for="usuario">Usuario</label>
     <input id="usuario" list="dlUsuarios" autocomplete="off">
     <label for="pin">PIN</label>
@@ -138,15 +139,18 @@
         <div><label for="fFecha">Fecha</label><input id="fFecha" type="date"></div>
         <div><label for="fTurno">Turno</label><select id="fTurno"><option value="">Todos</option><option>Día</option><option>Noche</option></select></div>
         <div><label for="fTipo">Tipo</label><select id="fTipo"><option value="">Todos</option><option value="CAM">Camionetas</option><option value="ENR">Enrollacables</option></select></div>
-        <div><label for="fMina">Mina</label><select id="fMina"><option value="">Todas</option><option value="ED">El Descanso</option><option value="PBNW">Pribbenow</option></select></div>
+        <div><label for="fMina">Mina</label><select id="fMina"><option value="">Todas</option><option value="ED">El Descanso</option><option value="PBNW">Pribbenow</option><option value="ADMIN">Administrativo</option></select></div>
+        <div id="bxSup" class="hidden"><label for="fSup">A nombre de</label><select id="fSup"><option value="">Todos</option></select></div>
         <div><label class="chk"><input type="checkbox" id="fPend" checked> Solo pendientes</label></div>
         <div><button type="button" class="pri" id="btnVer" style="width:100%">Actualizar</button></div>
       </div>
     </div>
+    <p class="mut hidden" id="notaMios" style="font-size:13px;margin:0 0 10px">Ve los preoperacionales que traen su nombre en el formulario.</p>
     <div class="kpis" id="kpis"></div>
     <div id="lista"></div>
     <div class="card" id="bxFaltan"><h2>Sin preoperacional <span class="mut" id="nFaltan"></span></h2><div id="faltan"></div>
-      <p class="mut" style="font-size:12px;margin:8px 0 0">Camionetas: las usadas en los últimos 15 días. Enrollacables: 7186, 7368, 7452, 7187 (PBNW) y 7458, 7247, 7188, 7182, 7002 (ED).</p></div>
+      <p class="mut" style="font-size:12px;margin:8px 0 0">Camionetas: las usadas en los últimos 15 días; las administrativas cuentan solo de lunes a viernes en el día. No cuentan las que Infraestructura marcó en mantenimiento o stand by. Enrollacables: 7186, 7368, 7452, 7187 (PBNW) y 7458, 7247, 7188, 7182, 7002 (ED).</p>
+      <div id="fuera"></div></div>
   </section>
 
   <section id="t-cam" class="hidden">
@@ -161,6 +165,15 @@
     <div class="card"><div id="camLista"></div>
       <div class="acciones"><button type="button" class="pri" id="btnCamGuardar">Guardar</button><button type="button" id="btnTodoOk">Todo Ok</button></div>
       <p class="mut" style="font-size:12px;margin:8px 0 0" id="camNota"></p>
+    </div>
+  </section>
+
+  <section id="t-veh" class="hidden">
+    <div class="card">
+      <h2>Estado de vehículos</h2>
+      <p class="mut" style="font-size:13px;margin:0 0 8px">Marque las camionetas que no se van a usar. Mientras estén en mantenimiento o stand by no salen como "sin preoperacional".</p>
+      <input id="vBuscar" placeholder="Buscar placa…" style="margin-bottom:8px">
+      <div id="vLista"></div>
     </div>
   </section>
 </main>
@@ -189,8 +202,16 @@
     $('t-lle').classList.toggle('hidden', tab !== 'lle');
     $('t-apr').classList.toggle('hidden', tab !== 'apr' || !ses);
     $('t-cam').classList.toggle('hidden', tab !== 'cam' || !ses);
+    $('t-veh').classList.toggle('hidden', tab !== 'veh' || !ses);
+    if (ses){
+      // pestañas según el rol
+      [['apr', ses.aprueba || ses.estados], ['cam', ses.camaras], ['veh', ses.estados]].forEach(function(p){
+        var b = $('tabs').querySelector('[data-t=' + p[0] + ']'); if (b) b.classList.toggle('hidden', !p[1]);
+      });
+    }
     if (ses && tab === 'apr' && !R) cargar();
     if (ses && tab === 'cam' && !$('camLista').innerHTML) verCamaras();
+    if (ses && tab === 'veh' && !V) verVehiculos();
   }
 
   /* ---------- formularios ---------- */
@@ -199,6 +220,7 @@
     ls('preop_forms', r.forms);
     if (r.estadosCamara) EST = r.estadosCamara;
     links(r.forms);
+    $('dlUsuarios').innerHTML = (r.usuarios || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join('');
   }).withFailureHandler(function(){}).getInicioPreop();
   function links(f){
     f = f || ls('preop_forms') || {};
@@ -207,7 +229,6 @@
   links();
 
   /* ---------- ingreso ---------- */
-  run().withSuccessHandler(function(x){ $('dlUsuarios').innerHTML = (x.usuarios || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); }).withFailureHandler(function(){}).getInicioRevision();
   function entrar(){ $('btnSalir').classList.remove('hidden'); $('sub').textContent = ses.nombre; pintarTabs(); }
   $('btnIngresar').onclick = function(){
     var u = $('usuario').value.trim(), p = $('pin').value.trim();
@@ -216,25 +237,37 @@
     run().withSuccessHandler(function(r){
       $('btnIngresar').disabled = false;
       if (!r.ok){ mostrar('err', esc(r.error)); return; }
-      ses = r; ses.usuario = r.nombre; ses.pin = p; ls('rev_ses', ses); mostrar('', ''); entrar();
-    }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar.'); }).ingresarSupervisor(u, p);
+      ses = r; ses.usuario = r.nombre; ses.pin = p; ls('preop_ses', ses); mostrar('', '');
+      if (tab === 'lle') tab = r.aprueba ? 'apr' : r.estados ? 'veh' : 'cam';
+      entrar();
+    }).withFailureHandler(function(){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar.'); }).ingresarPreop(u, p);
   };
-  $('btnSalir').onclick = function(){ ls('rev_ses', null); location.reload(); };
+  $('btnSalir').onclick = function(){ ls('preop_ses', null); location.reload(); };
 
   /* ---------- aprobar ---------- */
   $('fFecha').value = hoy(); $('cFecha').value = hoy(); $('cTurno').value = turnoAhora();
   $('btnVer').onclick = cargar; $('fFecha').onchange = cargar;
-  ['fTurno','fTipo','fMina','fPend'].forEach(function(id){ $(id).onchange = function(){ if (R) pintar(); }; });
+  ['fTurno','fTipo','fMina','fPend','fSup'].forEach(function(id){ $(id).onchange = function(){ if (R) pintar(); }; });
   function cargar(){
     $('btnVer').disabled = true; $('lista').innerHTML = '<p class="mut">Cargando…</p>';
     run().withSuccessHandler(function(r){
       $('btnVer').disabled = false;
       if (!r.ok){ mostrar('err', esc(r.error)); $('lista').innerHTML = ''; return; }
-      R = r; pintar();
+      R = r;
+      $('notaMios').classList.toggle('hidden', !!r.todo);
+      $('bxSup').classList.toggle('hidden', !r.todo);
+      if (r.todo){
+        var v = $('fSup').value, ns = {};
+        r.lista.forEach(function(x){ ns[x.dueno || x.supervisor || '(sin nombre)'] = 1; });
+        $('fSup').innerHTML = '<option value="">Todos</option>' + Object.keys(ns).sort().map(function(n){ return '<option' + (n === v ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+      }
+      pintar();
     }).withFailureHandler(function(e){ $('btnVer').disabled = false; $('lista').innerHTML = ''; mostrar('err', 'No se pudo conectar: ' + esc(e && e.message || '')); })
       .getPreop(ses.usuario, ses.pin, { fecha: $('fFecha').value });
   }
   function filtrar(x){
+    var sup = $('fSup').value;
+    if (sup && x.fila && (x.dueno || x.supervisor || '(sin nombre)') !== sup) return false;
     return (!$('fTurno').value || x.turno === $('fTurno').value) && (!$('fTipo').value || x.tipo === $('fTipo').value) && (!$('fMina').value || x.mina === $('fMina').value);
   }
   function pintar(){
@@ -246,14 +279,19 @@
     $('lista').innerHTML = ver.map(tarjeta).join('') || '<p class="mut">' + ($('fPend').checked ? 'No hay pendientes por aprobar con estos filtros.' : 'No hay preoperacionales con estos filtros.') + '</p>';
     $('nFaltan').textContent = '(' + F.length + ')';
     $('faltan').innerHTML = F.map(function(x){ return '<span class="falta">' + (x.tipo === 'CAM' ? '🚙 ' : '🚜 ') + esc(x.equipo) + ' · ' + esc(x.turno) + '</span>'; }).join('') || '<span class="mut">Todos tienen su preoperacional.</span>';
+    var Fu = (R.fuera || []).filter(function(x){ return !$('fMina').value || x.mina === $('fMina').value; });
+    $('fuera').innerHTML = Fu.length ? '<h3>Fuera de servicio (Infraestructura)</h3>' + Fu.map(function(x){ return '<span class="pill p-En" style="margin:3px 4px 0 0">🚙 ' + esc(x.equipo) + ' · ' + esc(x.estado) + (x.hasta ? ' hasta ' + esc(fmt(x.hasta)) : '') + '</span>'; }).join('') : '';
   }
+  function fmt(f){ return f && f.length === 10 ? f.slice(8, 10) + '/' + f.slice(5, 7) : f; }
+  function nomMina(m, lugar){ return m === 'ED' ? 'El Descanso' : m === 'PBNW' ? 'Pribbenow' : m === 'ADMIN' ? 'Administrativo' : lugar; }
   function clave(x){ return x.tipo + '|' + x.fila; }
   function tarjeta(x){
     var k = clave(x), ab = abierto === k;
     var h = '<div class="item' + (ab ? ' abierto' : '') + '" data-k="' + esc(k) + '"><div class="t"><span>' + (x.tipo === 'CAM' ? '🚙' : '🚜') + '</span><b>' + esc(x.equipo) + '</b>' +
       (x.nc.length ? '<span class="pill p-Sin">' + x.nc.length + ' novedad' + (x.nc.length > 1 ? 'es' : '') + '</span>' : '<span class="pill p-Cerrado">Sin NC</span>') +
       (x.aprobado ? '<span class="pill p-Cerrado">Aprobado</span>' + (x.pdf ? '' : ' <span class="pill p-En">PDF en proceso</span>') : '<span class="pill p-Pendiente">Pendiente</span>') + '</div>' +
-      '<div class="s">' + esc([x.persona, x.turno, x.mina === 'ED' ? 'El Descanso' : x.mina === 'PBNW' ? 'Pribbenow' : x.lugar, 'enviado ' + x.hora].filter(Boolean).join(' · ')) + '</div>';
+      '<div class="s">' + esc([x.persona, x.turno, nomMina(x.mina, x.lugar), 'enviado ' + x.hora].filter(Boolean).join(' · ')) + '</div>' +
+      (R.todo ? '<div class="s">A nombre de: <b>' + esc(x.dueno || x.supervisor || 'sin supervisor') + '</b>' + (!x.dueno && x.supervisor ? ' <span class="crit">(no está en USUARIOS)</span>' : '') + '</div>' : '');
     if (ab){
       h += '<dl style="margin-top:8px">' + [['Lugar', x.lugar], [x.medidaTxt, x.medida], ['Combustible', x.combustible], ['Conductor 2', x.persona2], ['Grupo / cuadrilla', [x.grupo, x.cuadrilla].filter(Boolean).join(' · ')],
         ['Supervisor', x.supervisor], ['Aprobado', x.aprobado ? (x.fechaAprob || 'Sí') + (x.firma ? ' · ' + x.firma : '') : ''], ['Correo', x.correo]]
@@ -261,7 +299,7 @@
       h += x.nc.length ? '<h3>Novedades</h3>' + x.nc.map(function(n){ return '<div class="nc"><b>' + esc(n.valor) + '</b> · ' + esc(n.seccion ? n.seccion + ' · ' : '') + esc(n.item) + '</div>'; }).join('') : '<h3>Novedades</h3><p class="mut" style="margin:0">Todo marcado C.</p>';
       if (x.obs.length) h += '<h3>Observaciones</h3>' + x.obs.map(function(o){ return '<div class="ob"><b>' + esc(o.titulo) + ':</b> ' + esc(o.texto) + '</div>'; }).join('');
       h += '<div class="acciones">';
-      if (!x.aprobado && R.edita) h += '<button type="button" class="pri" data-aprobar="' + esc(k) + '">Aprobar</button>';
+      if (!x.aprobado && R.edita && (R.todo || x.mio)) h += '<button type="button" class="pri" data-aprobar="' + esc(k) + '">Aprobar</button>';
       if (x.pdf) h += '<a href="' + esc(x.pdf) + '" target="_blank" rel="noopener"><button type="button">Abrir PDF</button></a>';
       h += '<button type="button" data-cerrar="1">Cerrar</button></div>';
       if (!x.aprobado) h += '<p class="mut" style="font-size:12px;margin:8px 0 0">Al aprobar, el PDF con la firma de <b>' + esc(x.supervisor || 'el supervisor del formulario') + '</b> y el correo salen solos en máximo 10 minutos.</p>';
@@ -326,9 +364,67 @@
       .guardarCamaras(ses.usuario, ses.pin, $('cFecha').value, $('cTurno').value, $('cMina').value, lista);
   };
 
+  /* ---------- estado de vehículos ---------- */
+  var V = null, vAbierto = '';
+  function verVehiculos(){
+    $('vLista').innerHTML = '<p class="mut">Cargando…</p>';
+    run().withSuccessHandler(function(r){
+      if (!r.ok){ mostrar('err', esc(r.error)); $('vLista').innerHTML = ''; return; }
+      V = r; pintarVeh();
+    }).withFailureHandler(function(){ $('vLista').innerHTML = ''; mostrar('err', 'No se pudo conectar.'); }).getVehiculos(ses.usuario, ses.pin);
+  }
+  $('vBuscar').oninput = function(){ if (V) pintarVeh(); };
+  function pintarVeh(){
+    var q = $('vBuscar').value.trim().toUpperCase();
+    var L = V.lista.filter(function(v){ return !q || v.placa.toUpperCase().indexOf(q) >= 0; });
+    $('vLista').innerHTML = L.map(function(v){
+      var e = v.est, est = v.fuera ? e.estado : 'Operativa', ab = vAbierto === v.placa;
+      var h = '<div class="item' + (ab ? ' abierto' : '') + '" data-p="' + esc(v.placa) + '"><div class="t"><span>🚙</span><b>' + esc(v.placa) + '</b>' +
+        '<span class="pill ' + (v.fuera ? 'p-Pendiente' : 'p-Cerrado') + '">' + esc(est) + '</span></div>' +
+        '<div class="s">' + esc([nomMina(v.mina, v.lugar), e && e.estado !== 'Operativa' ? (v.fuera ? 'desde ' + fmt(e.desde) + (e.hasta ? ' hasta ' + fmt(e.hasta) : ' sin fecha de regreso') : (e.desde > V.hoy ? e.estado + ' desde ' + fmt(e.desde) : '')) : '', e && e.nota].filter(Boolean).join(' · ')) + '</div>';
+      if (ab){
+        h += '<div class="grid" style="margin-top:8px"><div><label>Estado</label><select id="vEst">' + V.estados.map(function(s){ return '<option' + (s === est ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></div>' +
+          '<div><label>Desde</label><input type="date" id="vDesde" value="' + esc(V.hoy) + '"></div>' +
+          '<div><label>Hasta (opcional)</label><input type="date" id="vHasta"></div>' +
+          '<div class="full"><label>Nota</label><input id="vNota" placeholder="Ej: cambio de embrague en taller"></div></div>' +
+          '<div class="acciones"><button type="button" class="pri" data-vguardar="1">Guardar</button><button type="button" data-vcerrar="1">Cerrar</button></div>' +
+          (e ? '<p class="mut" style="font-size:12px;margin:8px 0 0">Último cambio: ' + esc(e.estado) + ' por ' + esc(e.usuario) + ' (' + esc(e.registro) + ')</p>' : '');
+      }
+      return h + '</div>';
+    }).join('') || '<p class="mut">No hay camionetas con esa placa.</p>';
+  }
+  $('vLista').addEventListener('click', function(ev){
+    var b = ev.target.closest('button');
+    if (b && b.dataset.vcerrar){ vAbierto = ''; pintarVeh(); return; }
+    if (b && b.dataset.vguardar){
+      b.disabled = true;
+      run().withSuccessHandler(function(r){
+        b.disabled = false;
+        if (!r.ok){ mostrar('err', esc(r.error)); return; }
+        mostrar('ok', esc(vAbierto) + ': ' + esc($('vEst').value) + ' guardado.'); vAbierto = ''; R = null; verVehiculos();
+      }).withFailureHandler(function(){ b.disabled = false; mostrar('err', 'No se pudo conectar.'); })
+        .guardarEstadoVeh(ses.usuario, ses.pin, vAbierto, $('vEst').value, $('vDesde').value, $('vHasta').value, $('vNota').value);
+      return;
+    }
+    if (ev.target.closest('input,select,label')) return;
+    var it = ev.target.closest('.item'); if (!it || it.classList.contains('abierto')) return;
+    vAbierto = it.dataset.p; pintarVeh();
+  });
+
   /* ---------- sesión guardada ---------- */
-  var g = ls('rev_ses');
-  if (g && g.usuario && g.pin){ ses = g; entrar(); } else pintarTabs();
+  var g = ls('preop_ses') || ls('rev_ses');
+  if (g && g.usuario && g.pin){
+    ses = g;
+    if (g.aprueba === undefined){ ses.aprueba = true; ses.camaras = true; }   // sesión de Revisión: se confirma abajo
+    entrar();
+    run().withSuccessHandler(function(r){
+      if (!r || !r.ok) return;
+      var cambio = r.aprueba !== ses.aprueba || r.estados !== ses.estados || r.camaras !== ses.camaras || r.todo !== ses.todo;
+      ['rol','todo','aprueba','estados','camaras'].forEach(function(k){ ses[k] = r[k]; });
+      ls('preop_ses', ses);
+      if (cambio){ R = null; pintarTabs(); }
+    }).withFailureHandler(function(){}).ingresarPreop(g.usuario, g.pin);
+  } else pintarTabs();
 })();
 </script>
 </body>
