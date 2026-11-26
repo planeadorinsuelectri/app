@@ -564,22 +564,32 @@
     fr.readAsArrayBuffer(file);
   }
   function enviar(ev, rc, nombre){
-    var lotes = [], N = 700, tot = { nuevos: 0, repetidos: 0, otros: 0, malos: 0, down: 0, rcaNuevos: 0, rcaYa: 0 };
+    var lotes = [], N = 700, tot = { nuevos: 0, repetidos: 0, otros: 0, malos: 0, down: 0, rcaNuevos: 0, rcaYa: 0, corregidos: 0 }, corr = [], dup = [];
     for (var i = 0; i < ev.length; i += N) lotes.push(ev.slice(i, i + N));
     var k = 0;
     $('btnCargar').disabled = true;
     (function sig(){
       if (k >= lotes.length){
         $('btnCargar').disabled = false; $('archivo').value = ''; $('infoArchivo').textContent = '';
-        mostrar('ok', '<b>' + esc(nombre) + '</b>: ' + tot.nuevos + ' movimientos nuevos, ' + tot.down + ' DOWN eléctrico (aparte), ' + tot.repetidos + ' ya estaban, ' +
+        var hm = function(h){ return String(h || '').slice(0, 5); };
+        mostrar('ok', '<b>' + esc(nombre) + '</b>: ' + tot.nuevos + ' movimientos nuevos, ' + tot.down + ' DOWN eléctrico (aparte), ' +
+          '<b>' + tot.corregidos + ' corregidos</b>, ' + tot.repetidos + ' sin cambio, ' +
           tot.otros + ' de otras categorías (no se cargan)' + (tot.malos ? ', ' + tot.malos + ' filas sin fecha u hora' : '') +
-          (rc.length ? '. RCA: ' + tot.rcaNuevos + ' cargados, ' + tot.rcaYa + ' ya estaban.' : '.'));
+          (rc.length ? '. RCA: ' + tot.rcaNuevos + ' cargados, ' + tot.rcaYa + ' ya estaban.' : '.') +
+          (corr.length ? '<br><br><b>Corregidos:</b><br>' + corr.map(function(c){
+            return esc(c.fecha + ' · ' + c.equipo + ' · ' + c.categoria + ' ' + hm(c.hora)) + ': ' +
+              (c.minAntes !== '' ? '<b>' + esc(c.minAntes) + ' → ' + esc(c.minAhora) + ' min</b>' : '') +
+              (c.otros.length ? (c.minAntes !== '' ? ' · ' : '') + 'cambió ' + esc(c.otros.join(', ')) : ''); }).join('<br>') : '') +
+          (dup.length ? '<br><br><b>Revise, posible evento repetido</b> (Drummond pudo cambiar la hora; quedaron los dos):<br>' + dup.map(function(d){
+            return esc(d.fecha + ' · ' + d.equipo + ' · ' + d.categoria) + ': ya estaba ' + esc(hm(d.horaVieja)) + ' (' + esc(d.minViejo) + ' min), llegó ' +
+              esc(hm(d.horaNueva)) + ' (' + esc(d.minNuevo) + ' min)'; }).join('<br>') : ''));
         cargar(); return;
       }
       mostrar('info', 'Cargando… ' + Math.min((k + 1) * N, ev.length) + ' de ' + ev.length + ' filas');
       run().withSuccessHandler(function(r){
         if (!r.ok){ $('btnCargar').disabled = false; mostrar('err', esc(r.error)); return; }
-        Object.keys(tot).forEach(function(x){ tot[x] += r[x] || 0; }); k++; sig();
+        Object.keys(tot).forEach(function(x){ tot[x] += r[x] || 0; });
+        corr = corr.concat(r.listaCorregidos || []); dup = dup.concat(r.posiblesDuplicados || []); k++; sig();
       }).withFailureHandler(function(e){ $('btnCargar').disabled = false; mostrar('err', 'Se cortó la carga: ' + esc(e && e.message || '') + '. Vuelva a cargar el archivo; lo repetido no se duplica.'); })
         .cargarEventosDrummond(ses.usuario, ses.pin, lotes[k], k === lotes.length - 1 ? rc : []);
     })();
