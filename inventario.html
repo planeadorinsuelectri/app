@@ -172,6 +172,13 @@
       <button type="button" data-v="BAJA">Dar de baja</button>
     </div>
 
+    <div id="bxModoNuevo" class="hidden">
+      <label>¿El circuito empieza o sigue?</label>
+      <div class="seg" id="modoNuevo">
+        <button type="button" data-v="CERO" class="sel">Desde 0</button>
+        <button type="button" data-v="CONTINUAR">Continuar circuito</button>
+      </div>
+    </div>
     <div id="bxOrigen" class="hidden">
       <label for="origen">¿De qué circuito retira?</label>
       <input id="origen" list="dlCircuitos" autocomplete="off" placeholder="Circuito, o número de un cable o caja">
@@ -232,6 +239,7 @@
 <datalist id="dlTecnicos"></datalist>
 <datalist id="dlUsuarios"></datalist>
 <datalist id="dlCircuitos"></datalist>
+<datalist id="dlSinEquipo"></datalist>
 <datalist id="dlAcopios"></datalist>
 <datalist id="dlEquipos"></datalist>
 <datalist id="dlSubs"></datalist>
@@ -248,7 +256,7 @@
            reglas:{letrasCaja:'AB',letrasCable:'',permitirNN:false,letraObligatoria:true},
            mina:'',grupos:[],items:[]};
   var NOM = {CABLE:'cable', CAJA:'caja', TORRE:'torre'};
-  var st = {turno:'', accion:'', estado:''};
+  var st = {turno:'', accion:'', estado:'', modoNuevo:'CERO'};
   var enviando = false, seq = 0;
   var $ = function(id){ return document.getElementById(id); };
 
@@ -282,10 +290,13 @@
   seg('turno','turno', guardarUsuario);
   seg('estado','estado');
   seg('accion','accion', pintarAccion);
+  seg('modoNuevo','modoNuevo', function(){ $('ubicacion').value = ''; pintarAccion(); elementosBase(); });
+  function continuar(){ return st.accion === 'NUEVO' && st.modoNuevo === 'CONTINUAR'; }
 
   function pintarAccion(){
     var a = st.accion, nuevo = a === 'NUEVO';
-    var av = a === 'AVANCE';
+    var av = a === 'AVANCE', cont = continuar();
+    $('bxModoNuevo').classList.toggle('hidden', !nuevo);
     $('bxUbic').classList.toggle('hidden', !(a === 'INSTALAR' || a === 'ACOPIO' || nuevo || av));
     $('bxEquipo').classList.toggle('hidden', !(a === 'INSTALAR' || nuevo || av));
     $('lblEquipo').classList.toggle('hidden', av); $('equipo').classList.toggle('hidden', av);   // en avance el equipo se confirma aparte
@@ -294,11 +305,12 @@
     $('infoRef').textContent = av ? 'Esa caja NO se mueve. El avance queda debajo de ella y lo que seguía (ej. el cola) queda al final.' : 'Esta caja NO se mueve. El cable y la caja nuevos quedan en la fila de abajo.';
     if (!av) $('bxEqConf').classList.add('hidden');
     $('bxRef').classList.toggle('hidden', nuevo);
-    $('bxSub').classList.toggle('hidden', !nuevo);
+    $('bxSub').classList.toggle('hidden', !nuevo || cont);
     $('bxEstado').classList.toggle('hidden', !(a === 'ACOPIO' || a === 'ESTADO'));
-    $('lblUbic').textContent = a === 'ACOPIO' ? 'Patio / sitio de acopio' : nuevo ? 'Nombre del circuito nuevo' : av ? '¿A qué circuito se le agrega el cable de avance?' : 'Circuito destino';
-    if (nuevo) $('ubicacion').removeAttribute('list'); else $('ubicacion').setAttribute('list', a === 'ACOPIO' ? 'dlAcopios' : 'dlCircuitos');
-    $('ubicacion').placeholder = a === 'ACOPIO' ? 'Ej: PATIO CABLE PIT 2' : nuevo ? 'Ej: 25SUB8-12 F3' : 'Ej: Circuito R';
+    $('lblUbic').textContent = a === 'ACOPIO' ? 'Patio / sitio de acopio' : cont ? '¿Qué circuito va a continuar?' : nuevo ? 'Nombre del circuito nuevo' : av ? '¿A qué circuito se le agrega el cable de avance?' : 'Circuito destino';
+    if (cont) $('ubicacion').setAttribute('list', 'dlSinEquipo');
+    else if (nuevo) $('ubicacion').removeAttribute('list'); else $('ubicacion').setAttribute('list', a === 'ACOPIO' ? 'dlAcopios' : 'dlCircuitos');
+    $('ubicacion').placeholder = a === 'ACOPIO' ? 'Ej: PATIO CABLE PIT 2' : cont ? 'Nombre del circuito, o número de un cable o caja' : nuevo ? 'Ej: 25SUB8-12 F3' : 'Ej: Circuito R';
     var modoN = instala() ? 'par' : a === 'ACOPIO' ? 'acopio' : 'libre';
     if (modoN !== modoElem) elementosBase();
     $('addLibre').querySelector('[data-add=TORRE]').classList.toggle('hidden', a === 'ACOPIO');
@@ -440,11 +452,53 @@
     return n > 1 ? donde + ' quedan los ' + n + ' tramos nuevos, uno debajo del otro'
       : donde + ' queda el cable y la caja nuevos';
   }
+  /* Continuar circuito: circuitos sin equipo, por nombre o por el número de un cable o caja */
+  function resolverCont(txt){
+    var g = buscarGrupo(txt);
+    if (!g){
+      var k = norm(txt);
+      var m = k ? (L.items || []).filter(function(x){ return (x[1] === 'CABLE' || x[1] === 'CAJA') && x[2] === k && x[7] === 'Instalado'; }) : [];
+      var gs_ = []; m.forEach(function(x){ var gx = buscarGrupo(x[5]); if (gx && gs_.indexOf(gx) < 0) gs_.push(gx); });
+      var libres = gs_.filter(function(gx){ return !gx.equipos.length; });
+      if (libres.length === 1) g = libres[0];
+      else if (libres.length > 1) return { varios: libres };
+      else if (gs_.length) g = gs_[0];
+    }
+    return g ? { g: g } : null;
+  }
   function pintarCircuito(){
     var box = $('vistaCirc');
+    if (continuar()){
+      var tx = $('ubicacion').value.trim(), rc = tx ? resolverCont(tx) : null;
+      if (!rc){ box.innerHTML = tx ? '<p class="info warn" style="margin:6px 0 0">No encuentro ese circuito, ni un cable o caja instalada con ese número.</p>' : ''; return; }
+      if (rc.varios){
+        box.innerHTML = '<p class="mut" style="margin:6px 0 0">Ese número está en varios circuitos. ¿Cuál va a continuar?</p><div class="rt">' +
+          rc.varios.map(function(g){ return '<button type="button" data-u="' + esc(g.ubicacion) + '">' + esc(g.ubicacion) + '</button>'; }).join('') + '</div>';
+        box.querySelectorAll('button').forEach(function(b){ b.onclick = function(){ $('ubicacion').value = b.dataset.u; pintarCircuito(); }; });
+        return;
+      }
+      var gc = rc.g;
+      if ($('ubicacion').value !== gc.ubicacion) $('ubicacion').value = gc.ubicacion;
+      if (gc.equipos.length){
+        box.innerHTML = '<p class="info warn" style="margin:6px 0 0">El circuito ' + esc(gc.ubicacion) + ' ya alimenta a ' + esc(gc.equipos.join(' / ')) + '. Para agregarle tramos use "Cable de avance".</p>';
+        return;
+      }
+      var fs = gc.tramos.map(function(t, n){
+        var partes = ['<span class="i">' + (n + 1) + '.</span>'];
+        if (t.cables.length) partes.push('<span>Cable ' + nums(t.cables, true) + '</span>');
+        if (t.cajas.length) partes.push('<span>Caja ' + nums(t.cajas, false) + '</span>');
+        if (t.t1.length || t.t2.length) partes.push('<span>Torres ' + nums(t.t1.concat(t.t2), false) + '</span>');
+        if (t.detalles) partes.push('<i>' + esc(t.detalles) + '</i>');
+        return '<div class="fila sin">' + partes.join('') + '</div>';
+      }).join('') + '<div class="nuevo">▼ ' + txtNuevos('Al final') + '</div>';
+      box.innerHTML = '<div class="vc"><div class="vc-h"><b>Así está hoy ' + esc(gc.ubicacion) + '</b>' + (gc.subs.length ? ' · inicia en ' + esc(gc.subs.join(' / ')) : '') +
+        ' · sin equipo<br>Lo que agregue queda a continuación, al final del circuito.' + (L.generado ? ' <span class="mut">Datos de ' + esc(L.generado) + '</span>' : '') + '</div>' +
+        '<div class="vc-b">' + fs + '</div></div>';
+      return;
+    }
     if (st.accion === 'NUEVO'){
       var gn = buscarGrupo($('ubicacion').value.trim());
-      box.innerHTML = gn ? '<p class="info warn" style="margin:6px 0 0">Ya existe un circuito llamado ' + esc(gn.ubicacion) + ' con elementos. Si es ese, use "Instalar / trasladar a circuito"; si es otro, cámbiele el nombre.</p>' : '';
+      box.innerHTML = gn ? '<p class="info warn" style="margin:6px 0 0">Ya existe un circuito llamado ' + esc(gn.ubicacion) + ' con elementos. Si es ese, use "Continuar circuito" (o "Cable de avance" si ya alimenta un equipo); si es otro, cámbiele el nombre.</p>' : '';
       return;
     }
     var av = st.accion === 'AVANCE';
@@ -577,7 +631,7 @@
     $('addLibre').classList.toggle('hidden', inst);
     $('addTramo').classList.toggle('hidden', !inst);
     $('hintElem').textContent = inst
-      ? (st.accion === 'NUEVO' ? 'Escriba los tramos en orden desde la subestación hacia la pala. ' : st.accion === 'AVANCE' ? 'Escriba los tramos del avance en orden, desde la caja elegida hacia la pala. ' : 'Cada tramo es un cable con su caja. Si instala varios, quedan en filas seguidas, en el orden en que los escribe. ') +
+      ? (continuar() ? 'Escriba los tramos que siguen, en orden hacia la pala: quedan a continuación de lo que ya está. ' : st.accion === 'NUEVO' ? 'Escriba los tramos en orden desde la subestación hacia la pala. ' : st.accion === 'AVANCE' ? 'Escriba los tramos del avance en orden, desde la caja elegida hacia la pala. ' : 'Cada tramo es un cable con su caja. Si instala varios, quedan en filas seguidas, en el orden en que los escribe. ') +
         'Marque el detalle de cada cable; las torres solo se piden en puente vía o cargue doble. El tipo sale del inventario: confírmelo o corríjalo.'
       : st.accion === 'ACOPIO' ? 'Escoja arriba lo que retiró del circuito. Si algo no aparece en el listado, agréguelo con + Cable / + Caja. Las torres no se retiran: quedan donde están.'
       : 'Llene solo los que movió. El tipo de cable y de caja se toma del inventario: solo confírmelo o corríjalo.';
@@ -884,7 +938,7 @@
     if (inst) document.querySelectorAll('#elementos .tramo').forEach(function(t){ detT[t.dataset.par] = detTramo(t); });
     return {
       huerfanos: inst ? leerHuerfanos(elems) : [],
-      subestacion: st.accion === 'NUEVO' ? $('subestacion').value.trim().toUpperCase().replace(/\s+/g, '') : '',
+      subestacion: st.accion === 'NUEVO' && !continuar() ? $('subestacion').value.trim().toUpperCase().replace(/\s+/g, '') : '',
       detallesTramo: inst ? detT : null,
       origen: st.accion === 'ACOPIO' && ret.g ? ret.g.ubicacion : '',
       retiroTodo: st.accion === 'ACOPIO' && retiroTodo() ? ret.g.ubicacion : '',
@@ -893,7 +947,7 @@
       fechaTrabajo: new Date().toLocaleString('es-CO'), fechaISO: new Date().toISOString(),
       usuario: ses ? ses.usuario : '', pin: ses ? ses.pin : '', mina: ses ? ses.mina : '',
       tecnico: ses ? ses.usuario : '', turno: st.turno,
-      accion: st.accion, ubicacion: $('ubicacion').value.trim(), equipo: $('equipo').value.trim(),
+      accion: continuar() ? 'CONTINUAR' : st.accion, ubicacion: $('ubicacion').value.trim(), equipo: $('equipo').value.trim(),
       estado: st.estado, observaciones: $('obs').value.trim(), elementos: elems,
       cajaRef: st.accion === 'INSTALAR' || st.accion === 'AVANCE' ? $('cajaRef').value.trim().toUpperCase() : '',
       equipoCircuito: equipoCircuitoAv(),
@@ -936,7 +990,12 @@
     }
     var re = revisarElementos();
     if (re) return re;
-    if (p.accion === 'INSTALAR' || p.accion === 'NUEVO' || p.accion === 'AVANCE'){
+    if (p.accion === 'CONTINUAR'){
+      var gk = buscarGrupo(p.ubicacion);
+      if (!gk) return 'Escriba el circuito que va a continuar (nombre, o número de un cable o caja de ese circuito).';
+      if (gk.equipos.length) return 'El circuito ' + gk.ubicacion + ' ya alimenta a ' + gk.equipos.join(' / ') + '. Para agregarle tramos use "Cable de avance".';
+    }
+    if (p.accion === 'INSTALAR' || p.accion === 'NUEVO' || p.accion === 'AVANCE' || p.accion === 'CONTINUAR'){
       var ts = document.querySelectorAll('#elementos .tramo');
       for (var t = 0; t < ts.length; t++){
         var v = function(el){ var x = ts[t].querySelector('.elem[data-elemento=' + el + '] .num'); return x ? x.value.trim() : ''; };
@@ -958,7 +1017,7 @@
     }
     if (p.cajaRef && !/^\d+[A-Z]?$/.test(p.cajaRef)) return 'Caja de referencia inválida: "' + p.cajaRef + '". Escríbala pegada, sin espacios (ej: 229B).';
     for (var i = 0; i < p.elementos.length; i++){
-      if (p.elementos[i].elemento === 'TORRE' && (p.accion === 'INSTALAR' || p.accion === 'NUEVO' || p.accion === 'AVANCE') && !p.elementos[i].posicion)
+      if (p.elementos[i].elemento === 'TORRE' && (p.accion === 'INSTALAR' || p.accion === 'NUEVO' || p.accion === 'AVANCE' || p.accion === 'CONTINUAR') && !p.elementos[i].posicion)
         return 'Indique la posición (#1 o #2) de la torre ' + p.elementos[i].numero + '.';
     }
     return '';
@@ -1065,6 +1124,7 @@
     $('mina').textContent = L.mina || '';
     var fill = function(id, arr){ $(id).innerHTML = (arr || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); };
     fill('dlTecnicos', L.tecnicos); fill('dlCircuitos', L.circuitos);
+    fill('dlSinEquipo', (L.grupos || []).filter(function(g){ return !g.equipos.length && (g.cables || g.cajas); }).map(function(g){ return g.ubicacion; }));
     fill('dlAcopios', L.acopios); fill('dlEquipos', L.equipos); fill('dlSubs', L.subestaciones);
     L.detalles = (L.detalles || []).filter(function(d){ return d !== 'Caja 25'; });
     document.querySelectorAll('#elementos .tramo').forEach(pintarDetTramo);
