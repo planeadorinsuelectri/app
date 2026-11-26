@@ -52,6 +52,15 @@
   .comp button{border:none;background:none;color:var(--mut);font-size:22px;padding:0 6px}
   .info{font-size:12px;color:var(--mut);margin:0 0 8px}
   .info.warn{color:var(--warn)}
+  .ex{font-size:13px;margin:-4px 0 10px}
+  .ex .tb{padding:8px 10px;border:1px solid var(--ln);border-radius:8px;margin-bottom:6px}
+  .ex .tb.pend{border-color:var(--warn)}
+  .ex .okt{color:var(--ok);font-weight:600}
+  .ex .bt{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+  .ex .bt button{min-height:42px;border:1px solid var(--ln);border-radius:8px;background:var(--bg);color:var(--tx);font:600 13px system-ui,sans-serif}
+  .ex .bt button.sel{background:var(--acc);border-color:var(--acc);color:#111}
+  .ex select,.ex input{margin-top:6px}
+  .ex .orf{padding:8px 10px;border:1px solid var(--err);background:var(--errbg);border-radius:8px;margin-bottom:6px}
   .add{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
   .add button{flex:1;min-height:44px;border:1px solid var(--ln);border-radius:8px;background:transparent;color:var(--tx);font:600 14px system-ui,sans-serif}
   .resumen{font-size:14px;line-height:1.5}
@@ -507,9 +516,11 @@
       (retiro ? '<select class="est"><option>Disponible</option><option>No disponible</option></select>' : '') +
       '<button type="button" aria-label="Quitar">×</button>';
     var info = document.createElement('p'); info.className = 'info';
-    d.querySelector('button').onclick = function(){ d.remove(); info.remove(); pintarDestino(); };
+    var ex = document.createElement('div'); ex.className = 'ex';
+    d._ex = ex; d._orf = []; d.dataset.retiro = retiro ? '1' : '';
+    d.querySelector('button').onclick = function(){ d.remove(); info.remove(); ex.remove(); pintarDestino(); };
     d.querySelector('.num').addEventListener('change', function(){ verificarComp(d, info); });
-    $(cont).appendChild(d); $(cont).appendChild(info);
+    $(cont).appendChild(d); $(cont).appendChild(info); $(cont).appendChild(ex);
     pintarDestino();
     d.querySelector('.num').focus();
   }
@@ -536,23 +547,128 @@
   function verificarComp(d, info){
     var inp = d.querySelector('.num');
     inp.value = inp.value.trim().toUpperCase();
-    d.dataset.id = '';
+    d.dataset.id = ''; d.dataset.tipoEst = ''; d._orf = []; d._ex.innerHTML = '';
     if (!inp.value){ info.textContent = ''; return; }
     var ef = errFormato(d.dataset.elemento, inp.value);
     if (ef){ info.className = 'info warn'; info.textContent = ef; return; }
-    var k = norm(inp.value);
+    var k = norm(inp.value), conTipo = d.dataset.elemento !== 'TORRE';
     var m = (L && L.items || []).filter(function(x){ return x[1] === d.dataset.elemento && x[2] === k && x[7] !== 'De baja'; });
-    if (!m.length){ info.className = 'info warn'; info.textContent = 'No está en el inventario: se creará como nuevo.'; return; }
+    if (!m.length){
+      info.className = 'info warn'; info.textContent = 'No está en el inventario: se creará como nuevo.';
+      if (conTipo) pedirTipoComp(d, '', true);
+      return;
+    }
     if (m.length > 1){ info.className = 'info warn'; info.textContent = 'Número repetido en el inventario: el supervisor revisará cuál fue.'; return; }
     d.dataset.id = m[0][0];
     info.className = 'info';
-    info.textContent = 'Hoy: ' + m[0][7] + ' · ' + (m[0][5] || 'sin ubicación') + (m[0][4] ? ' · ' + m[0][4] : '');
+    info.textContent = 'Hoy: ' + m[0][7] + ' · ' + (m[0][5] || 'sin ubicación') + (m[0][6] && m[0][6] !== 'Acopio' ? ' / ' + m[0][6] : '');
+    if (conTipo) pedirTipoComp(d, m[0][4], false);
+    if (!d.dataset.retiro && d.dataset.elemento === 'CAJA' && m[0][7] === 'Instalado' && m[0][8]) pintarHuerfanosComp(d, m[0]);
+  }
+  function tiposComp(el){
+    return el === 'CABLE' ? ((L && L.tiposCable) || ['#2', '2/0', '4/0', '2/0 25kV', '300 MCM', 'Jumper'])
+      : ((L && L.tiposCaja) || ['8 kV', '25 kV']);
+  }
+  /* Tipo: confirma el del inventario o deja elegirlo (igual que el módulo Inventario) */
+  function pedirTipoComp(d, tipoInv, nuevo){
+    var box = d._ex.querySelector('.tb') || d._ex.insertBefore(document.createElement('div'), d._ex.firstChild);
+    var el = d.dataset.elemento, nom = NOM[el].toLowerCase();
+    var sel = '<select class="tipoSel"><option value="">Elija el tipo…</option>' + tiposComp(el).map(function(t){
+      return '<option' + (t === tipoInv ? ' disabled' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
+    d.dataset.tipoInv = tipoInv || '';
+    if (tipoInv){
+      d.dataset.tipoEst = 'pendiente';
+      box.className = 'tb pend';
+      box.innerHTML = 'Tipo de ' + nom + ' en el inventario: <b>' + esc(tipoInv) + '</b>. ¿Está de acuerdo?' +
+        '<div class="bt"><button type="button" class="si">Sí, es correcto</button><button type="button" class="no">No, corregir</button></div>';
+      box.querySelector('.si').onclick = function(){
+        d.dataset.tipoEst = 'ok'; box.className = 'tb';
+        box.innerHTML = '<span class="okt">✔ Tipo ' + esc(tipoInv) + ' confirmado</span> <button type="button" class="lnk">cambiar</button>';
+        box.querySelector('.lnk').onclick = function(){ pedirTipoComp(d, tipoInv, false); };
+      };
+      box.querySelector('.no').onclick = function(){
+        d.dataset.tipoEst = 'corregir'; box.className = 'tb pend';
+        box.innerHTML = 'El inventario dice <b>' + esc(tipoInv) + '</b>. Elija el tipo correcto:' + sel +
+          ' <button type="button" class="lnk">cancelar, sí es ' + esc(tipoInv) + '</button>';
+        box.querySelector('.lnk').onclick = function(){ pedirTipoComp(d, tipoInv, false); box.querySelector('.si').click(); };
+      };
+    } else {
+      d.dataset.tipoEst = 'opcional'; box.className = 'tb';
+      box.innerHTML = (nuevo ? 'Elemento nuevo: elija el tipo de ' + nom : 'El inventario no tiene el tipo de esta ' + nom + ': elíjalo') +
+        ' <span class="mut">(opcional)</span>' + sel.replace(' disabled', '');
+    }
+  }
+  /* Caja que se instala y hoy está con otro cable: preguntar qué pasa con ese cable */
+  function pintarHuerfanosComp(d, x){
+    var cables = (L.items || []).filter(function(y){
+      return y[1] === 'CABLE' && y[8] === x[8] && y[5] === x[5] && y[7] === 'Instalado';
+    }).map(function(y){ return { id: y[0], numero: y[3] }; });
+    if (!cables.length) return;
+    d._orf = cables;
+    var box = document.createElement('div');
+    box.innerHTML = cables.map(function(c, i){
+      return '<div class="orf" data-i="' + i + '"><b>La caja ' + esc(x[3]) + ' hoy está con el cable ' + esc(c.numero) + '</b> en ' +
+        esc(x[5]) + '. Si la instala aquí, ese cable queda sin caja.<br>¿Qué pasa con el cable ' + esc(c.numero) + '?' +
+        '<div class="bt"><button type="button" data-a="ACOPIO">Se retira a acopio</button><button type="button" data-a="CIRCUITO">Se traslada a otro circuito</button></div>' +
+        '<div class="dest hidden"><input class="destino" autocomplete="off">' +
+        '<div class="bt est hidden"><button type="button" data-v="Disponible">Disponible</button><button type="button" data-v="No disponible">No disponible</button></div></div>' +
+        '<p class="ayuda nota hidden">No hay que responder: este cable ya va en la tarea.</p></div>';
+    }).join('');
+    d._ex.appendChild(box);
+    box.querySelectorAll('.orf').forEach(function(o){
+      var inp = o.querySelector('.destino');
+      o.querySelectorAll('.bt:not(.est) button').forEach(function(b){
+        b.onclick = function(){
+          o.dataset.a = b.dataset.a;
+          o.querySelectorAll('.bt:not(.est) button').forEach(function(y){ y.classList.toggle('sel', y === b); });
+          o.querySelector('.dest').classList.remove('hidden');
+          var aco = b.dataset.a === 'ACOPIO';
+          inp.setAttribute('list', aco ? 'dlAcopios' : 'dlCircuitos');
+          inp.placeholder = aco ? '¿A qué patio? Ej: PATIO INSUELECTRI' : '¿A qué circuito?';
+          o.querySelector('.est').classList.toggle('hidden', !aco);
+        };
+      });
+      o.querySelectorAll('.est button').forEach(function(b){
+        b.onclick = function(){ o.dataset.e = b.dataset.v;
+          o.querySelectorAll('.est button').forEach(function(y){ y.classList.toggle('sel', y === b); }); };
+      });
+    });
+  }
+  /* Cables huérfanos que el técnico debe resolver (los que ya van en la tarea no cuentan) */
+  function leerHuerfanosComp(ag, re){
+    var rep = ag.concat(re).filter(function(e){ return e.elemento === 'CABLE'; }).map(function(e){ return norm(e.numero); });
+    var out = [];
+    $('agregados').querySelectorAll('.comp[data-elemento=CAJA]').forEach(function(d){
+      (d._orf || []).forEach(function(c, i){
+        var o = d._ex.querySelector('.orf[data-i="' + i + '"]');
+        var ya = rep.indexOf(norm(c.numero)) >= 0;
+        if (o) o.querySelector('.nota').classList.toggle('hidden', !ya);
+        if (ya) return;
+        out.push({ id: c.id, numero: c.numero, accion: (o && o.dataset.a) || '',
+          destino: o ? o.querySelector('.destino').value.trim() : '', estado: (o && o.dataset.e) || '' });
+      });
+    });
+    return out;
+  }
+  function errComp(){
+    var err = '';
+    ['agregados', 'retirados'].forEach(function(c){
+      $(c).querySelectorAll('.comp').forEach(function(d){
+        if (err) return;
+        var num = d.querySelector('.num').value.trim().toUpperCase(); if (!num) return;
+        var n = NOM[d.dataset.elemento].toLowerCase() + ' ' + num, e = d.dataset.tipoEst;
+        if (e === 'pendiente') err = 'Confirme el tipo del ' + n + ': toque "Sí, es correcto" o "No, corregir".';
+        else if (e === 'corregir' && !(d._ex.querySelector('.tipoSel') || {}).value) err = 'Elija el tipo correcto del ' + n + '.';
+      });
+    });
+    return err;
   }
   function leerComp(cont){
     return Array.prototype.map.call($(cont).querySelectorAll('.comp'), function(d){
-      var est = d.querySelector('.est');
+      var est = d.querySelector('.est'), e = d.dataset.tipoEst;
+      var tipo = (e === 'corregir' || e === 'opcional') ? ((d._ex && d._ex.querySelector('.tipoSel')) || {}).value || '' : '';
       return { elemento: d.dataset.elemento, numero: d.querySelector('.num').value.trim().toUpperCase(),
-        idMaestro: d.dataset.id || '', estado: est ? est.value : '' };
+        idMaestro: d.dataset.id || '', estado: est ? est.value : '', tipo: tipo };
     }).filter(function(x){ return x.numero; });
   }
 
@@ -636,7 +752,8 @@
       lineaTiempo: st.clase === 'DOWN' ? $('lineaTiempo').value.trim() : '',
       cambioPlan: st.clase === 'DOWN' ? st.cambioPlan : '', descCambio: $('descCambio').value.trim(), minCambio: $('minCambio').value.trim(),
       cableCola: st.cableCola, inspeccionCola: $('inspeccionCola').value.trim(),
-      agregados: leerComp('agregados'), retirados: leerComp('retirados'), destinoRetiro: $('destinoRetiro').value.trim()
+      agregados: leerComp('agregados'), retirados: leerComp('retirados'), destinoRetiro: $('destinoRetiro').value.trim(),
+      huerfanos: leerHuerfanosComp(leerComp('agregados'), leerComp('retirados'))
     };
   }
   function validar(p){
@@ -690,6 +807,12 @@
     for (var j = 0; j < comps.length; j++){ var ef = errFormato(comps[j].elemento, comps[j].numero); if (ef) return ef; }
     if (p.agregados.length && !p.circuito) return 'Para instalar cables, cajas o torres escriba el circuito.';
     if (p.retirados.length && !p.destinoRetiro) return 'Escriba a qué patio llevó lo retirado.';
+    var ec = errComp(); if (ec) return ec;
+    for (var h = 0; h < (p.huerfanos || []).length; h++){
+      var x = p.huerfanos[h];
+      if (!x.accion) return 'Diga qué pasa con el cable ' + x.numero + ' que queda sin caja.';
+      if (!x.destino) return 'Escriba ' + (x.accion === 'ACOPIO' ? 'a qué patio' : 'a qué circuito') + ' va el cable ' + x.numero + '.';
+    }
     return '';
   }
   function resumenTxt(p){ return p.tipo + (p.equipo ? ' · ' + p.equipo : '') + (p.circuito ? ' · ' + p.circuito : ''); }
