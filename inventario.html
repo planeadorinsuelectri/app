@@ -889,6 +889,7 @@
   }
   /* La mina se escoge al empezar cada reporte (no queda fija desde el ingreso) */
   function pintarMinas(){
+    if (ses && ses.mina === 'COROZO'){ ses.mina = ''; ses.nombreMina = ''; ls(KEY_SES, ses); }
     var ms = ls('red_minas') || [{ codigo: 'PBNW', nombre: 'Pribbenow' }, { codigo: 'ED', nombre: 'El Descanso' }];
     $('minaSeg').innerHTML = ms.map(function(m){ return '<button type="button" data-v="' + esc(m.codigo) + '" data-n="' + esc(m.nombre) + '"' +
       (ses && ses.mina === m.codigo ? ' class="sel"' : '') + '>' + esc(m.nombre) + '</button>'; }).join('');
