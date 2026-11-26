@@ -114,9 +114,7 @@
 
   <section class="card" id="cardIngreso">
     <h2>Ingreso</h2>
-    <label for="mina" style="margin-top:0">Mina</label>
-    <select id="minaSel"><option value="">Cargando…</option></select>
-    <label for="usuario">Usuario</label>
+    <label for="usuario" style="margin-top:0">Usuario</label>
     <input id="usuario" list="dlUsuarios" autocomplete="off" placeholder="Escriba y elija su nombre">
     <label for="pin">PIN</label>
     <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6">
@@ -125,8 +123,11 @@
 
   <section class="card hidden" id="cardQuien">
     <h2>Quién reporta</h2>
-    <p style="margin:0"><b id="lblUsuario"></b> · <span id="lblMina"></span>
+    <p style="margin:0"><b id="lblUsuario"></b>
       <button type="button" class="lnk" id="btnSalir">cambiar</button></p>
+    <label>¿En qué inventario va a trabajar?</label>
+    <div class="seg" id="minaSeg"></div>
+    <p class="mut" id="minaAviso" style="margin:6px 0 0">Elija la mina antes de empezar.</p>
     <label>Turno</label>
     <div class="seg" id="turno">
       <button type="button" data-v="Día">Día</button>
@@ -666,6 +667,7 @@
     };
   }
   function validar(p){
+    if (!p.mina) return 'Elija en qué inventario va a trabajar (Pribbenow o El Descanso).';
     if (!ses) return 'Ingrese con su usuario y PIN.';
     if (!p.turno) return 'Seleccione el turno.';
     if (!p.accion) return 'Seleccione qué hizo.';
@@ -692,8 +694,9 @@
         var nom = ts.length > 1 ? 'Tramo ' + (t + 1) + ': ' : '';
         if (!v('CABLE') && !v('CAJA') && !tors) { if (ts.length > 1) return nom + 'está vacío. Llénelo o toque "Quitar tramo".'; continue; }
         if (!v('CABLE')) return nom + 'falta el número del cable. Cada tramo instalado lleva un cable y una caja.';
-        if (!v('CAJA')) return nom + 'falta el número de la caja. Cada tramo instalado lleva un cable y una caja.';
         if (!detTramo(ts[t]).length) return (nom || '') + 'marque el detalle del cable ' + v('CABLE') + ' (cola, tubo, puente vía…).';
+        var esCola = detTramo(ts[t]).indexOf('Cola') >= 0, ultimo = t === ts.length - 1;
+        if (!v('CAJA') && !esCola && !ultimo) return nom + 'falta el número de la caja. Solo el último tramo o un cable de cola pueden ir sin caja.';
         if (pideTorres(ts[t]) && !tors) return (nom || '') + 'el cable ' + v('CABLE') + ' es puente vía o cargue doble: escriba al menos una torre.';
       }
       for (var h = 0; h < p.huerfanos.length; h++){
@@ -723,6 +726,7 @@
     ls(KEY_COLA, cola);
     guardarUsuario();
     limpiar();
+    ses.mina = ''; ses.nombreMina = ''; ls(KEY_SES, ses); mostrarSesion();
     pintarCola();
     if (navigator.onLine && gs()) mostrar('warn', 'Enviando: ' + esc(resumenTxt(p)) + '…');
     else mostrar('warn', 'Sin señal. Quedó guardado y se envía solo cuando haya cobertura.');
@@ -819,7 +823,7 @@
     pintarCircuito();
   }
   function cargarListas(){
-    if (!gs() || !ses) return;
+    if (!gs() || !ses || !ses.mina) return;
     gs().withSuccessHandler(function(x){
       if (!x || !x.ok){ if (x && /PIN/.test(x.error)) salir(x.error); return; }
       ls(KEY_LISTAS + '_' + ses.mina, x); aplicarListas(x);
@@ -831,12 +835,28 @@
     var on = !!ses;
     $('cardIngreso').classList.toggle('hidden', on);
     $('cardQuien').classList.toggle('hidden', !on);
+    var listo = on && !!ses.mina;
     document.querySelectorAll('main > section.card').forEach(function(c){
-      if (c.id !== 'cardIngreso' && c.id !== 'cardQuien' && c.id !== 'cardCola') c.classList.toggle('hidden', !on);
+      if (c.id !== 'cardIngreso' && c.id !== 'cardQuien' && c.id !== 'cardCola') c.classList.toggle('hidden', !listo);
     });
-    $('btnEnviar').parentNode.classList.toggle('hidden', !on);
-    if (on){ $('lblUsuario').textContent = ses.usuario; $('lblMina').textContent = ses.nombreMina; $('mina').textContent = ses.nombreMina; }
+    $('btnEnviar').parentNode.classList.toggle('hidden', !listo);
+    if (on){ $('lblUsuario').textContent = ses.usuario; $('mina').textContent = ses.mina ? ses.nombreMina : 'Elija la mina'; }
+    pintarMinas();
   }
+  /* La mina se escoge al empezar cada reporte (no queda fija desde el ingreso) */
+  function pintarMinas(){
+    var ms = ls('red_minas') || [{ codigo: 'PBNW', nombre: 'Pribbenow' }, { codigo: 'ED', nombre: 'El Descanso' }];
+    $('minaSeg').innerHTML = ms.map(function(m){ return '<button type="button" data-v="' + esc(m.codigo) + '" data-n="' + esc(m.nombre) + '"' +
+      (ses && ses.mina === m.codigo ? ' class="sel"' : '') + '>' + esc(m.nombre) + '</button>'; }).join('');
+    $('minaAviso').classList.toggle('hidden', !!(ses && ses.mina));
+  }
+  $('minaSeg').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b || !ses) return;
+    var cambio = ses.mina !== b.dataset.v;
+    ses.mina = b.dataset.v; ses.nombreMina = b.dataset.n; ls(KEY_SES, ses);
+    if (cambio){ L.items = []; L.grupos = []; aplicarListas(ls(KEY_LISTAS + '_' + ses.mina)); cargarListas(); limpiar(); }
+    mostrarSesion(); pintarAccion();
+  });
   function salir(msg){
     ses = null; ls(KEY_SES, null); mostrarSesion();
     if (msg) mostrar('err', esc(msg));
@@ -847,20 +867,17 @@
     salir();
   };
   $('btnIngresar').onclick = function(){
-    var u = $('usuario').value.trim(), pin = $('pin').value.trim(), m = $('minaSel').value;
-    if (!m) { mostrar('err', 'Elija la mina.'); return; }
+    var u = $('usuario').value.trim(), pin = $('pin').value.trim();
     if (!u || !pin) { mostrar('err', 'Escriba su usuario y su PIN.'); return; }
     if (!gs() || !navigator.onLine) { mostrar('err', 'Para ingresar la primera vez necesita señal.'); return; }
     $('btnIngresar').disabled = true;
     gs().withSuccessHandler(function(r){
       $('btnIngresar').disabled = false;
       if (!r.ok){ mostrar('err', esc(r.error)); return; }
-      ses = { usuario: r.nombre, pin: pin, mina: m, nombreMina: $('minaSel').selectedOptions[0].textContent };
+      ses = { usuario: r.nombre, pin: pin, mina: '', nombreMina: '' };
       ls(KEY_SES, ses);
       $('resultado').innerHTML = '';
       mostrarSesion();
-      aplicarListas(ls(KEY_LISTAS + '_' + m));
-      cargarListas();
       procesarCola();
     }).withFailureHandler(function(e){ $('btnIngresar').disabled = false; mostrar('err', 'No se pudo conectar. Intente de nuevo.'); })
       .ingresar(u, pin);
@@ -868,8 +885,7 @@
   function cargarInicio(){
     if (!gs()) return;
     gs().withSuccessHandler(function(x){
-      $('minaSel').innerHTML = '<option value="">Elija la mina…</option>' + x.minas.map(function(m){
-        return '<option value="' + esc(m.codigo) + '">' + esc(m.nombre) + '</option>'; }).join('');
+      ls('red_minas', x.minas.map(function(m){ return { codigo: m.codigo, nombre: m.nombre }; })); pintarMinas();
       $('dlUsuarios').innerHTML = x.usuarios.map(function(v){ return '<option value="' + esc(v) + '">'; }).join('');
       if (x.url){ $('lnkTareas').href = x.url; $('lnkTareas').hidden = false; }
     }).withFailureHandler(function(){}).getInicio();
@@ -879,9 +895,9 @@
   var u = ls(KEY_USER) || {};
   if (u.turno){ st.turno = u.turno; marcar('turno', u.turno); }
   ses = ls(KEY_SES);
+  if (ses){ ses.mina = ''; ses.nombreMina = ''; ls(KEY_SES, ses); }
   mostrarSesion();
   cargarInicio();
-  if (ses) aplicarListas(ls(KEY_LISTAS + '_' + ses.mina));
   elementosBase();
   pintarAccion();
   pintarCola();
