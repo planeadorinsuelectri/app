@@ -83,6 +83,19 @@
   .fila i{font-style:normal;color:var(--mut);font-size:12px}
   .fila.sel{background:var(--acc2)!important;box-shadow:inset 4px 0 0 var(--acc)}
   .fila.sin{cursor:default}
+  .rt{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;background:var(--card)}
+  .rt button{flex:1;min-height:42px;border:1px solid var(--acc);border-radius:8px;background:transparent;color:var(--tx);font:600 14px system-ui,sans-serif}
+  .rt button.sel{background:var(--acc);color:#111}
+  .fr{padding:8px 10px;border-top:1px solid var(--ln);font-size:14px}
+  .fr:nth-child(even){background:var(--bg)}
+  .fr label{display:flex;align-items:center;gap:8px;margin:4px 0;font-weight:400;cursor:pointer}
+  .fr input[type=checkbox]{width:22px;height:22px;min-height:0;flex:none}
+  .fr .tq{color:var(--mut);font-size:12px;margin:4px 0 0 30px}
+  .eqAv{margin-top:10px;padding:10px;border-radius:10px;background:var(--warnbg);color:var(--warn);font-size:14px}
+  .eqAv input{margin-top:6px}
+  .eqAv .bt{display:flex;gap:6px;margin-top:6px}
+  .eqAv button{flex:1;min-height:40px;border:1px solid var(--warn);border-radius:8px;background:transparent;color:var(--warn);font:600 13px system-ui,sans-serif}
+  .eqAv button.sel{background:var(--warn);color:#fff}
   .nuevo{padding:8px 10px;background:var(--okbg);color:var(--ok);font-weight:700;font-size:13px;border-top:2px dashed var(--ok)}
   .tramo{border:2px solid var(--acc);border-radius:12px;padding:10px;margin-bottom:12px}
   .detBox{margin:-2px 0 10px}
@@ -152,6 +165,12 @@
       <button type="button" data-v="BAJA">Dar de baja</button>
     </div>
 
+    <div id="bxOrigen" class="hidden">
+      <label for="origen">¿De qué circuito retira?</label>
+      <input id="origen" list="dlCircuitos" autocomplete="off" placeholder="Circuito, o número de un cable o caja">
+      <p class="mut" id="infoOrigen" style="margin:4px 0 0">Escriba el circuito o el número de un cable o caja de ese circuito.</p>
+      <div id="vistaOrigen"></div>
+    </div>
     <div id="bxUbic" class="hidden">
       <label for="ubicacion" id="lblUbic">Circuito destino</label>
       <input id="ubicacion" autocomplete="off">
@@ -269,7 +288,116 @@
     var modoN = instala() ? 'par' : a === 'ACOPIO' ? 'acopio' : 'libre';
     if (modoN !== modoElem) elementosBase();
     $('addLibre').querySelector('[data-add=TORRE]').classList.toggle('hidden', a === 'ACOPIO');
+    $('bxOrigen').classList.toggle('hidden', a !== 'ACOPIO');
     pintarCircuito();
+  }
+
+  /* ---------- retirar a acopio: escoger del circuito ---------- */
+  var ret = { g: null, eq: {} };   // eq: equipo -> { destino, sin }
+  function itemDe(id){ return (L.items || []).find(function(x){ return x[0] === id; }) || null; }
+  function resolverOrigen(txt){
+    var g = buscarGrupo(txt);
+    if (g && !g.acopio) return { g: g };
+    var k = norm(txt); if (!k) return null;
+    var m = (L.items || []).filter(function(x){ return (x[1] === 'CABLE' || x[1] === 'CAJA') && x[2] === k && x[7] === 'Instalado'; });
+    var gs_ = [];
+    m.forEach(function(x){ var gx = buscarGrupo(x[5]); if (gx && !gx.acopio && gs_.indexOf(gx) < 0) gs_.push(gx); });
+    if (gs_.length === 1) return { g: gs_[0], id: m.length === 1 ? m[0][0] : '' };
+    if (gs_.length > 1) return { varios: gs_ };
+    return null;
+  }
+  function elegidosRet(){ return Array.prototype.map.call(document.querySelectorAll('#elementos .elem[data-from]'), function(d){ return d.dataset.from; }); }
+  function idsGrupo(g){ var ids = []; g.tramos.forEach(function(t){ t.cables.concat(t.cajas).forEach(function(x){ ids.push(x.id); }); }); return ids; }
+  function retiroTodo(){
+    if (!ret.g) return false;
+    var el = elegidosRet(), ids = idsGrupo(ret.g);
+    return ids.length > 0 && ids.every(function(i){ return el.indexOf(i) >= 0; });
+  }
+  function quitarDeLista(id){ document.querySelectorAll('#elementos .elem[data-from="' + id + '"]').forEach(function(d){ d.remove(); }); }
+  function agregarDeLista(id){
+    if (document.querySelector('#elementos .elem[data-from="' + id + '"]')) return;
+    var x = itemDe(id); if (!x) return;
+    // quita las tarjetas vacías para que lo escogido quede arriba
+    document.querySelectorAll('#elementos .elem:not([data-from])').forEach(function(d){ if (!d.querySelector('.num').value.trim()) d.remove(); });
+    var d = agregarElemento(x[1]);
+    d.dataset.from = id; d.dataset.id = id;
+    var inp = d.querySelector('.num'); inp.value = x[3]; inp.readOnly = true;
+    var info = d.querySelector('.info'); info.className = 'info';
+    info.textContent = 'Hoy: ' + x[7] + ' · ' + x[5] + (x[6] && x[6] !== 'Acopio' ? ' / ' + x[6] : '') + (x[4] ? ' · ' + x[4] : '') + (x[9] ? ' · ' + x[9] : '');
+    d.dataset.tipoEst = '';                       // tipo y voltaje: se toman del inventario
+    if (x[1] === 'CABLE' && !x[9]) pedirVolt(d, ''); // solo se pide el voltaje si el inventario no lo tiene
+    d.querySelector('.elem-h button').onclick = function(){ d.remove(); pintarOrigen(); };
+  }
+  function pintarOrigen(){
+    var box = $('vistaOrigen');
+    if (st.accion !== 'ACOPIO'){ box.innerHTML = ''; ret.g = null; return; }
+    var txt = $('origen').value.trim();
+    var r = txt ? resolverOrigen(txt) : null;
+    $('infoOrigen').style.color = '';
+    if (!r){
+      ret.g = null;
+      $('infoOrigen').textContent = txt ? 'No encuentro ese circuito, ni un cable o caja instalada con ese número. Revise, o agregue abajo con + Cable / + Caja.'
+        : 'Escriba el circuito o el número de un cable o caja de ese circuito.';
+      if (txt) $('infoOrigen').style.color = 'var(--err)';
+      box.innerHTML = ''; return;
+    }
+    if (r.varios){
+      ret.g = null;
+      $('infoOrigen').textContent = 'Ese número está en varios circuitos. ¿De cuál retira?';
+      box.innerHTML = '<div class="rt">' + r.varios.map(function(g){ return '<button type="button" data-u="' + esc(g.ubicacion) + '">' + esc(g.ubicacion) + '</button>'; }).join('') + '</div>';
+      box.querySelectorAll('button').forEach(function(b){ b.onclick = function(){ $('origen').value = b.dataset.u; pintarOrigen(); }; });
+      return;
+    }
+    if (!ret.g || ret.g.ubicacion !== r.g.ubicacion){   // cambió de circuito: lo escogido del otro circuito se quita (un circuito por reporte)
+      document.querySelectorAll('#elementos .elem[data-from]').forEach(function(d){ d.remove(); });
+      ret.g = r.g; ret.eq = {};
+      if (!document.querySelector('#elementos .elem')) $('elementos').innerHTML = '';
+    } else ret.g = r.g;   // mismo circuito con datos recargados
+    var g = ret.g;
+    if (r.id){ agregarDeLista(r.id); $('origen').value = g.ubicacion; }
+    else if ($('origen').value !== g.ubicacion) $('origen').value = g.ubicacion;
+    $('infoOrigen').textContent = 'Marque lo que retiró, o toque "Retirar todo". Las torres se quedan.';
+    var el = elegidosRet(), todo = retiroTodo();
+    var lin = function(x){ var it = itemDe(x.id) || [];
+      return '<label><input type="checkbox" data-id="' + esc(x.id) + '"' + (el.indexOf(x.id) >= 0 ? ' checked' : '') + '>' +
+        (it[1] === 'CAJA' ? 'Caja ' : 'Cable ') + '<b>' + esc(x.numero) + '</b>' + (x.tipo ? ' <i class="mut">' + esc(x.tipo) + '</i>' : '') +
+        (it[9] ? ' <i class="mut">' + esc(it[9]) + '</i>' : '') + '</label>'; };
+    var filas = g.tramos.map(function(t, n){
+      var tor = t.t1.concat(t.t2);
+      if (!t.cables.length && !t.cajas.length && !tor.length) return '';
+      return '<div class="fr"><span class="mut">' + (n + 1) + '.</span>' + t.cables.map(lin).join('') + t.cajas.map(lin).join('') +
+        (tor.length ? '<div class="tq">Torres ' + tor.map(function(x){ return esc(x.numero); }).join(' / ') + ' (se quedan)</div>' : '') + '</div>';
+    }).join('');
+    var aviso = '';
+    if (todo && g.equipos.length){
+      aviso = g.equipos.map(function(eq){
+        var e = ret.eq[eq] || (ret.eq[eq] = { destino: '', sin: false });
+        return '<div class="eqAv" data-eq="' + esc(eq) + '">Este circuito alimenta a <b>' + esc(eq) + '</b>. Para retirarlo todo, primero diga a qué circuito pasó el equipo:' +
+          '<input class="eqDest" list="dlCircuitos" autocomplete="off" placeholder="Circuito nuevo de ' + esc(eq) + '" value="' + esc(e.destino) + '"' + (e.sin ? ' disabled' : '') + '>' +
+          '<div class="bt"><button type="button" class="eqSin' + (e.sin ? ' sel' : '') + '">Quedó sin alimentación</button></div></div>';
+      }).join('');
+    }
+    box.innerHTML = '<div class="vc"><div class="vc-h"><b>Así está hoy ' + esc(g.ubicacion) + '</b>' +
+      (g.equipos.length ? ' · ' + esc(g.equipos.join(' / ')) : '') + (L.generado ? ' <span class="mut">Datos de ' + esc(L.generado) + '</span>' : '') + '</div>' +
+      '<div class="rt"><button type="button" class="todo' + (todo ? ' sel' : '') + '">Retirar todo (cables y cajas)</button>' +
+      '<button type="button" class="nada">Quitar todo</button></div>' +
+      '<div class="vc-b">' + (filas || '<div class="fr mut">Este circuito no tiene cables ni cajas.</div>') + '</div></div>' + aviso;
+    box.querySelectorAll('input[type=checkbox]').forEach(function(c){
+      c.onchange = function(){ if (c.checked) agregarDeLista(c.dataset.id); else quitarDeLista(c.dataset.id); pintarOrigen(); };
+    });
+    box.querySelector('.todo').onclick = function(){ idsGrupo(g).forEach(agregarDeLista); pintarOrigen(); };
+    box.querySelector('.nada').onclick = function(){ idsGrupo(g).forEach(quitarDeLista); pintarOrigen(); };
+    box.querySelectorAll('.eqAv').forEach(function(a){
+      var e = ret.eq[a.dataset.eq], inp = a.querySelector('.eqDest');
+      inp.onchange = function(){ var gx = buscarGrupo(inp.value); if (gx) inp.value = gx.ubicacion; e.destino = inp.value.trim(); };
+      a.querySelector('.eqSin').onclick = function(){ e.sin = !e.sin; if (e.sin) e.destino = ''; pintarOrigen(); };
+    });
+  }
+  $('origen').addEventListener('change', pintarOrigen);
+  $('origen').addEventListener('input', function(){ if (buscarGrupo(this.value)) pintarOrigen(); });
+  function cambiosEquipoRet(){
+    if (st.accion !== 'ACOPIO' || !ret.g || !retiroTodo()) return [];
+    return ret.g.equipos.map(function(eq){ var e = ret.eq[eq] || {}; return { equipo: eq, origen: ret.g.ubicacion, destino: e.sin ? '' : (e.destino || ''), sin: !!e.sin }; });
   }
 
   function instala(){ return st.accion === 'INSTALAR' || st.accion === 'NUEVO'; }
@@ -394,9 +522,10 @@
     $('hintElem').textContent = inst
       ? (st.accion === 'NUEVO' ? 'Escriba los tramos en orden desde la subestación hacia la pala. ' : 'Cada tramo es un cable con su caja. Si instala varios, quedan en filas seguidas, en el orden en que los escribe. ') +
         'Marque el detalle de cada cable; las torres solo se piden en puente vía o cargue doble. El tipo sale del inventario: confírmelo o corríjalo.'
-      : st.accion === 'ACOPIO' ? 'Agregue todos los cables y cajas que retiró (botones + Cable / + Caja). Las torres no se retiran: quedan donde están.'
+      : st.accion === 'ACOPIO' ? 'Escoja arriba lo que retiró del circuito. Si algo no aparece en el listado, agréguelo con + Cable / + Caja. Las torres no se retiran: quedan donde están.'
       : 'Llene solo los que movió. El tipo de cable y de caja se toma del inventario: solo confírmelo o corríjalo.';
     if (inst) { agregarTramo(); return; }
+    if (st.accion === 'ACOPIO'){ ret.g = null; ret.eq = {}; $('origen').value = ''; pintarOrigen(); return; }
     agregarElemento('CABLE'); agregarElemento('CAJA');
     if (st.accion !== 'ACOPIO'){ agregarElemento('TORRE', '#1'); agregarElemento('TORRE', '#2'); }
   }
@@ -700,6 +829,9 @@
       huerfanos: inst ? leerHuerfanos(elems) : [],
       subestacion: st.accion === 'NUEVO' ? $('subestacion').value.trim().toUpperCase().replace(/\s+/g, '') : '',
       detallesTramo: inst ? detT : null,
+      origen: st.accion === 'ACOPIO' && ret.g ? ret.g.ubicacion : '',
+      retiroTodo: st.accion === 'ACOPIO' && retiroTodo() ? ret.g.ubicacion : '',
+      cambiosEquipo: cambiosEquipoRet().map(function(c){ return { equipo: c.equipo, origen: c.origen, destino: c.destino }; }),
       idEnvio: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       fechaTrabajo: new Date().toLocaleString('es-CO'), fechaISO: new Date().toISOString(),
       usuario: ses ? ses.usuario : '', pin: ses ? ses.pin : '', mina: ses ? ses.mina : '',
@@ -715,7 +847,15 @@
     if (!ses) return 'Ingrese con su usuario y PIN.';
     if (!p.turno) return 'Seleccione el turno.';
     if (!p.accion) return 'Seleccione qué hizo.';
-    if ((p.accion === 'INSTALAR' || p.accion === 'ACOPIO') && !p.ubicacion) return 'Falta la ubicación destino.';
+    if (p.accion === 'ACOPIO'){
+      var ce = cambiosEquipoRet();
+      for (var q = 0; q < ce.length; q++){
+        if (!ce[q].sin && !ce[q].destino) return 'El circuito ' + ce[q].origen + ' alimenta a ' + ce[q].equipo + '. Antes de retirarlo todo, diga a qué circuito pasó el equipo (o toque "Quedó sin alimentación").';
+        if (ce[q].destino === ce[q].origen) return ce[q].equipo + ': el circuito nuevo no puede ser el mismo que retira.';
+      }
+      if (!p.ubicacion) return 'Escriba a qué patio o sitio de acopio llevó lo retirado.';
+    }
+    if (p.accion === 'INSTALAR' && !p.ubicacion) return 'Falta la ubicación destino.';
     if (p.accion === 'NUEVO'){
       if (!p.ubicacion) return 'Escriba el nombre del circuito nuevo.';
       if (!p.subestacion) return 'Escriba la subestación o VCB donde inicia el circuito.';

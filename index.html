@@ -51,6 +51,23 @@
   .comp.r{grid-template-columns:1fr 1.1fr 1.2fr auto}
   .comp button{border:none;background:none;color:var(--mut);font-size:22px;padding:0 6px}
   .info{font-size:12px;color:var(--mut);margin:0 0 8px}
+  .vc{margin-top:8px;border:1px solid var(--ln);border-radius:10px;overflow:hidden}
+  .vc-h{background:var(--acc2);padding:8px 10px;font-size:13px}
+  .vc-h b{font-size:15px}
+  .vc-b{max-height:360px;overflow-y:auto}
+  .rt{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;background:var(--card)}
+  .rt button{flex:1;min-height:42px;border:1px solid var(--acc);border-radius:8px;background:transparent;color:var(--tx);font:600 14px system-ui,sans-serif}
+  .rt button.sel{background:var(--acc);color:#111}
+  .fr{padding:8px 10px;border-top:1px solid var(--ln);font-size:14px}
+  .fr:nth-child(even){background:var(--bg)}
+  .fr label{display:flex;align-items:center;gap:8px;margin:4px 0;font-weight:400;cursor:pointer}
+  .fr input[type=checkbox]{width:22px;height:22px;min-height:0;flex:none}
+  .fr .tq{color:var(--mut);font-size:12px;margin:4px 0 0 30px}
+  .eqAv{margin-top:10px;padding:10px;border-radius:10px;background:var(--warnbg);color:var(--warn);font-size:14px}
+  .eqAv input{margin-top:6px}
+  .eqAv .bt{display:flex;gap:6px;margin-top:6px}
+  .eqAv button{flex:1;min-height:40px;border:1px solid var(--warn);border-radius:8px;background:transparent;color:var(--warn);font:600 13px system-ui,sans-serif}
+  .eqAv button.sel{background:var(--warn);color:#fff}
   .info.warn{color:var(--warn)}
   .ex{font-size:13px;margin:-4px 0 10px}
   .ex .tb{padding:8px 10px;border:1px solid var(--ln);border-radius:8px;margin-bottom:6px}
@@ -263,7 +280,11 @@
     <div id="agregados"></div>
     <div class="add"><button type="button" data-ag="CABLE">+ Cable</button><button type="button" data-ag="CAJA">+ Caja</button><button type="button" data-ag="TORRE">+ Torre</button></div>
     <label>Retirados del circuito</label>
-    <div id="retirados"></div>
+    <label for="origenRet" style="margin-top:4px;font-weight:400">¿De qué circuito retira?</label>
+    <input id="origenRet" list="dlCircuitos" autocomplete="off" placeholder="Circuito, o número de un cable o caja">
+    <p class="ayuda" id="infoOrigenRet">Escriba el circuito para escoger del listado lo que retiró. Si algo no aparece, use + Cable / + Caja.</p>
+    <div id="vistaOrigenRet"></div>
+    <div id="retirados" style="margin-top:8px"></div>
     <div class="add"><button type="button" data-re="CABLE">+ Cable</button><button type="button" data-re="CAJA">+ Caja</button><button type="button" data-re="TORRE">+ Torre</button></div>
     <div id="bxDestino" class="hidden">
       <label for="destinoRetiro">¿A qué patio o acopio llevó lo retirado?</label>
@@ -523,6 +544,111 @@
     $(cont).appendChild(d); $(cont).appendChild(info); $(cont).appendChild(ex);
     pintarDestino();
     d.querySelector('.num').focus();
+    d._info = info;
+    return d;
+  }
+
+  /* ---------- retirar: escoger del circuito ---------- */
+  var ret = { g: null, eq: {} };   // eq: equipo -> { destino, sin }
+  function buscarGrupoT(txt){
+    var u = String(txt || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    if (!u) return null;
+    return ((L && L.grupos) || []).find(function(g){ var n = g.ubicacion.toUpperCase().replace(/\s+/g, ' '); return n === u || n === 'CIRCUITO ' + u; }) || null;
+  }
+  function itemT(id){ return ((L && L.items) || []).find(function(x){ return x[0] === id; }) || null; }
+  function resolverOrigenT(txt){
+    var g = buscarGrupoT(txt); if (g) return { g: g };
+    var k = norm(txt); if (!k) return null;
+    var m = ((L && L.items) || []).filter(function(x){ return (x[1] === 'CABLE' || x[1] === 'CAJA') && x[2] === k && x[7] === 'Instalado'; });
+    var gs_ = [];
+    m.forEach(function(x){ var gx = buscarGrupoT(x[5]); if (gx && gs_.indexOf(gx) < 0) gs_.push(gx); });
+    if (gs_.length === 1) return { g: gs_[0], id: m.length === 1 ? m[0][0] : '' };
+    if (gs_.length > 1) return { varios: gs_ };
+    return null;
+  }
+  function elegidosT(){ return Array.prototype.map.call($('retirados').querySelectorAll('.comp[data-from]'), function(d){ return d.dataset.from; }); }
+  function idsGrupoT(g){ var ids = []; g.tramos.forEach(function(t){ t.cables.concat(t.cajas).forEach(function(x){ ids.push(x.id); }); }); return ids; }
+  function retiroTodoT(){ if (!ret.g) return false; var el = elegidosT(), ids = idsGrupoT(ret.g); return ids.length > 0 && ids.every(function(i){ return el.indexOf(i) >= 0; }); }
+  function quitarT(id){ var d = $('retirados').querySelector('.comp[data-from="' + id + '"]'); if (d) d.querySelector('button').click(); }
+  function agregarT(id){
+    if ($('retirados').querySelector('.comp[data-from="' + id + '"]')) return;
+    var x = itemT(id); if (!x) return;
+    $('retirados').querySelectorAll('.comp:not([data-from])').forEach(function(d){ if (!d.querySelector('.num').value.trim()) d.querySelector('button').click(); });
+    var d = filaComp('retirados', x[1], true);
+    d.dataset.from = id; d.dataset.id = id; d.dataset.tipoEst = '';
+    var inp = d.querySelector('.num'); inp.value = x[3]; inp.readOnly = true; inp.blur();
+    d._info.className = 'info';
+    d._info.textContent = 'Hoy: ' + x[7] + ' · ' + x[5] + (x[6] && x[6] !== 'Acopio' ? ' / ' + x[6] : '') + (x[4] ? ' · ' + x[4] : '') + (x[10] ? ' · ' + x[10] : '');
+    if (x[1] === 'CABLE' && !x[10]) pedirVoltComp(d, '');   // solo se pide el voltaje si el inventario no lo tiene
+    var b = d.querySelector('button'), quitarViejo = b.onclick;
+    b.onclick = function(){ quitarViejo(); pintarOrigenT(); };
+  }
+  function pintarOrigenT(){
+    var box = $('vistaOrigenRet'), txt = $('origenRet').value.trim();
+    var r = txt ? resolverOrigenT(txt) : null;
+    $('infoOrigenRet').style.color = '';
+    if (!r){
+      ret.g = null; box.innerHTML = '';
+      $('infoOrigenRet').textContent = txt ? 'No encuentro ese circuito, ni un cable o caja instalada con ese número. Revise, o use + Cable / + Caja.'
+        : 'Escriba el circuito para escoger del listado lo que retiró. Si algo no aparece, use + Cable / + Caja.';
+      if (txt) $('infoOrigenRet').style.color = 'var(--err)';
+      return;
+    }
+    if (r.varios){
+      ret.g = null;
+      $('infoOrigenRet').textContent = 'Ese número está en varios circuitos. ¿De cuál retira?';
+      box.innerHTML = '<div class="rt">' + r.varios.map(function(g){ return '<button type="button" data-u="' + esc(g.ubicacion) + '">' + esc(g.ubicacion) + '</button>'; }).join('') + '</div>';
+      box.querySelectorAll('button').forEach(function(b){ b.onclick = function(){ $('origenRet').value = b.dataset.u; pintarOrigenT(); }; });
+      return;
+    }
+    if (!ret.g || ret.g.ubicacion !== r.g.ubicacion){   // un circuito por tarea: lo escogido del otro circuito se quita
+      if (ret.g) idsGrupoT(ret.g).forEach(quitarT);
+      ret.g = r.g; ret.eq = {};
+    } else ret.g = r.g;   // mismo circuito con datos recargados
+    var g = ret.g;
+    if (r.id) agregarT(r.id);
+    $('origenRet').value = g.ubicacion;
+    $('infoOrigenRet').textContent = 'Marque lo que retiró, o toque "Retirar todo". Las torres se quedan.';
+    var el = elegidosT(), todo = retiroTodoT();
+    var lin = function(x){ var it = itemT(x.id) || [];
+      return '<label><input type="checkbox" data-id="' + esc(x.id) + '"' + (el.indexOf(x.id) >= 0 ? ' checked' : '') + '>' +
+        (it[1] === 'CAJA' ? 'Caja ' : 'Cable ') + '<b>' + esc(x.numero) + '</b>' + (x.tipo ? ' <i class="ayuda">' + esc(x.tipo) + '</i>' : '') +
+        (it[10] ? ' <i class="ayuda">' + esc(it[10]) + '</i>' : '') + '</label>'; };
+    var filas = g.tramos.map(function(t, n){
+      var tor = t.t1.concat(t.t2);
+      if (!t.cables.length && !t.cajas.length && !tor.length) return '';
+      return '<div class="fr"><span class="ayuda">' + (n + 1) + '.</span>' + t.cables.map(lin).join('') + t.cajas.map(lin).join('') +
+        (tor.length ? '<div class="tq">Torres ' + tor.map(function(x){ return esc(x.numero); }).join(' / ') + ' (se quedan)</div>' : '') + '</div>';
+    }).join('');
+    var aviso = '';
+    if (todo && g.equipos.length){
+      aviso = g.equipos.map(function(eq){
+        var e = ret.eq[eq] || (ret.eq[eq] = { destino: '', sin: false });
+        return '<div class="eqAv" data-eq="' + esc(eq) + '">Este circuito alimenta a <b>' + esc(eq) + '</b>. Para retirarlo todo, primero diga a qué circuito pasó el equipo:' +
+          '<input class="eqDest" list="dlCircuitos" autocomplete="off" placeholder="Circuito nuevo de ' + esc(eq) + '" value="' + esc(e.destino) + '"' + (e.sin ? ' disabled' : '') + '>' +
+          '<div class="bt"><button type="button" class="eqSin' + (e.sin ? ' sel' : '') + '">Quedó sin alimentación</button></div></div>';
+      }).join('');
+    }
+    box.innerHTML = '<div class="vc"><div class="vc-h"><b>Así está hoy ' + esc(g.ubicacion) + '</b>' + (g.equipos.length ? ' · ' + esc(g.equipos.join(' / ')) : '') +
+      (L && L.generado ? ' <span class="ayuda">Datos de ' + esc(L.generado) + '</span>' : '') + '</div>' +
+      '<div class="rt"><button type="button" class="todo' + (todo ? ' sel' : '') + '">Retirar todo (cables y cajas)</button><button type="button" class="nada">Quitar todo</button></div>' +
+      '<div class="vc-b">' + (filas || '<div class="fr ayuda">Este circuito no tiene cables ni cajas.</div>') + '</div></div>' + aviso;
+    box.querySelectorAll('input[type=checkbox]').forEach(function(c){
+      c.onchange = function(){ if (c.checked) agregarT(c.dataset.id); else quitarT(c.dataset.id); pintarOrigenT(); };
+    });
+    box.querySelector('.todo').onclick = function(){ idsGrupoT(g).forEach(agregarT); pintarOrigenT(); };
+    box.querySelector('.nada').onclick = function(){ idsGrupoT(g).forEach(quitarT); pintarOrigenT(); };
+    box.querySelectorAll('.eqAv').forEach(function(a){
+      var e = ret.eq[a.dataset.eq], inp = a.querySelector('.eqDest');
+      inp.onchange = function(){ var gx = buscarGrupoT(inp.value); if (gx) inp.value = gx.ubicacion; e.destino = inp.value.trim(); };
+      a.querySelector('.eqSin').onclick = function(){ e.sin = !e.sin; if (e.sin) e.destino = ''; pintarOrigenT(); };
+    });
+  }
+  $('origenRet').addEventListener('change', pintarOrigenT);
+  $('origenRet').addEventListener('input', function(){ if (buscarGrupoT(this.value)) pintarOrigenT(); });
+  function cambiosEquipoT(){
+    if (!ret.g || !retiroTodoT()) return [];
+    return ret.g.equipos.map(function(eq){ var e = ret.eq[eq] || {}; return { equipo: eq, origen: ret.g.ubicacion, destino: e.sin ? '' : (e.destino || ''), sin: !!e.sin }; });
   }
   document.querySelector('#cardComp').addEventListener('click', function(ev){
     var b = ev.target.closest('button[data-ag],button[data-re]'); if (!b) return;
@@ -783,6 +909,8 @@
       cambioPlan: st.clase === 'DOWN' ? st.cambioPlan : '', descCambio: $('descCambio').value.trim(), minCambio: $('minCambio').value.trim(),
       cableCola: st.cableCola, inspeccionCola: $('inspeccionCola').value.trim(),
       agregados: leerComp('agregados'), retirados: leerComp('retirados'), destinoRetiro: $('destinoRetiro').value.trim(),
+      retiroTodo: retiroTodoT() ? ret.g.ubicacion : '',
+      cambiosEquipo: cambiosEquipoT().map(function(c){ return { equipo: c.equipo, origen: c.origen, destino: c.destino }; }),
       huerfanos: leerHuerfanosComp(leerComp('agregados'), leerComp('retirados'))
     };
   }
@@ -836,6 +964,11 @@
     var comps = p.agregados.concat(p.retirados);
     for (var j = 0; j < comps.length; j++){ var ef = errFormato(comps[j].elemento, comps[j].numero); if (ef) return ef; }
     if (p.agregados.length && !p.circuito) return 'Para instalar cables, cajas o torres escriba el circuito.';
+    var ceq = cambiosEquipoT();
+    for (var q = 0; q < ceq.length; q++){
+      if (!ceq[q].sin && !ceq[q].destino) return 'El circuito ' + ceq[q].origen + ' alimenta a ' + ceq[q].equipo + '. Antes de retirarlo todo, diga a qué circuito pasó el equipo (o toque "Quedó sin alimentación").';
+      if (ceq[q].destino === ceq[q].origen) return ceq[q].equipo + ': el circuito nuevo no puede ser el mismo que retira.';
+    }
     if (p.retirados.length && !p.destinoRetiro) return 'Escriba a qué patio llevó lo retirado.';
     var ec = errComp(); if (ec) return ec;
     for (var h = 0; h < (p.huerfanos || []).length; h++){
@@ -915,6 +1048,7 @@
     st.fotos = []; pintarFotos();
     chipsMarcar('justificaciones', []); pintarJustMin();
     $('agregados').innerHTML = ''; $('retirados').innerHTML = '';
+    $('origenRet').value = ''; ret.g = null; ret.eq = {}; $('vistaOrigenRet').innerHTML = ''; $('infoOrigenRet').style.color = '';
     $('bxCambio').classList.add('hidden'); $('bxCola').classList.add('hidden');
     pintarDestino(); pintarClase();
   }
