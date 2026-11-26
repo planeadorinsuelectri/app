@@ -274,8 +274,8 @@
     return (!$('fTurno').value || x.turno === $('fTurno').value) && (!$('fTipo').value || x.tipo === $('fTipo').value) && (!$('fMina').value || x.mina === $('fMina').value);
   }
   function pintar(){
-    var L = R.lista.filter(filtrar), pend = L.filter(function(x){ return !x.aprobado; }), F = R.faltan.filter(filtrar);
-    $('kpis').innerHTML = [['Recibidos', L.length, 'en la fecha'], ['Pendientes', pend.length, 'por aprobar'],
+    var L = R.lista.filter(filtrar), pend = L.filter(function(x){ return !x.aprobado && !x.anulado; }), F = R.faltan.filter(filtrar);
+    $('kpis').innerHTML = [['Recibidos', L.filter(function(x){ return !x.anulado; }).length, 'en la fecha'], ['Pendientes', pend.length, 'por aprobar'],
       ['Con novedad', L.filter(function(x){ return x.nc.length; }).length, 'NC o N.R'], ['Sin preoperacional', F.length, 'equipo y turno']]
       .map(function(k){ return '<div class="kpi"><h4>' + k[0] + '</h4><b>' + k[1] + '</b><span>' + k[2] + '</span></div>'; }).join('');
     var ver = $('fPend').checked ? pend : L;
@@ -292,20 +292,28 @@
     var k = clave(x), ab = abierto === k;
     var h = '<div class="item' + (ab ? ' abierto' : '') + '" data-k="' + esc(k) + '"><div class="t"><span>' + (x.tipo === 'CAM' ? '🚙' : '🚜') + '</span><b>' + esc(x.equipo) + '</b>' +
       (x.nc.length ? '<span class="pill p-Sin">' + x.nc.length + ' novedad' + (x.nc.length > 1 ? 'es' : '') + '</span>' : '<span class="pill p-Cerrado">Sin NC</span>') +
-      (x.aprobado ? '<span class="pill p-Cerrado">Aprobado</span>' + (x.pdf ? '' : ' <span class="pill p-En">PDF en proceso</span>') : '<span class="pill p-Pendiente">Pendiente</span>') + '</div>' +
+      (x.anulado ? '<span class="pill">Anulado: repetido</span>' : x.aprobado ? '<span class="pill p-Cerrado">Aprobado</span>' + (x.pdf ? '' : ' <span class="pill p-En">PDF en proceso</span>') : '<span class="pill p-Pendiente">Pendiente</span>') +
+      (x.envios && !x.anulado ? (x.repetido ? ' <span class="pill p-Sin">Repetido (' + x.envios.length + ' envíos)</span>' : x.cambioConductor ? ' <span class="pill p-En">Cambio de conductor</span>' : '') : '') +
+      (x.ncNuevas && x.ncNuevas.length ? ' <span class="pill p-Sin">' + x.ncNuevas.length + ' novedad' + (x.ncNuevas.length > 1 ? 'es' : '') + ' nueva' + (x.ncNuevas.length > 1 ? 's' : '') + '</span>' : '') + '</div>' +
       '<div class="s">' + esc([x.persona, x.turno, nomMina(x.mina, x.lugar), 'enviado ' + x.hora].filter(Boolean).join(' · ')) + '</div>' +
+      (x.envios ? '<div class="s">' + (x.cambioConductor && !x.repetido ? 'Conductores del turno: ' : 'Envíos del turno: ') + x.envios.map(function(e){ return (e.fila === x.fila ? '<b>' : '') + esc((e.persona || 'sin nombre') + ' ' + e.hora) + (e.anulado ? ' (anulado)' : '') + (e.fila === x.fila ? '</b>' : ''); }).join(' · ') + '</div>' : '') +
       (R.todo ? '<div class="s">A nombre de: <b>' + esc(x.dueno || x.supervisor || 'sin supervisor') + '</b>' + (!x.dueno && x.supervisor ? ' <span class="crit">(no está en USUARIOS)</span>' : '') + '</div>' : '');
     if (ab){
       h += '<dl style="margin-top:8px">' + [['Lugar', x.lugar], [x.medidaTxt, x.medida], ['Combustible', x.combustible], ['Conductor 2', x.persona2], ['Grupo / cuadrilla', [x.grupo, x.cuadrilla].filter(Boolean).join(' · ')],
         ['Supervisor', x.supervisor], ['Aprobado', x.aprobado ? (x.fechaAprob || 'Sí') + (x.firma ? ' · ' + x.firma : '') : ''], ['Correo', x.correo]]
         .filter(function(d){ return d[1]; }).map(function(d){ return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('') + '</dl>';
+      if (x.repetido && !x.aprobado) h += '<p class="ob" style="margin-top:8px">' + (x.sugeridoRep ? '<b>Este es el último envío de este conductor:</b> es el que se sugiere aprobar. Anule los anteriores como repetidos.' : '<b>Hay otro envío del mismo conductor (más reciente o ya aprobado).</b> Se sugiere anular este como repetido.') + '</p>';
+      if (x.ncNuevas && x.ncNuevas.length) h += '<div class="nc" style="margin-top:8px"><b>Novedades que no reportó el conductor anterior (' + esc(x.conductorAnterior || '') + '):</b> ' + x.ncNuevas.map(function(n){ return esc(n.item) + ' (' + esc(n.valor) + ')'; }).join(', ') + '</div>';
+      if (x.anulado) h += '<p class="mut" style="font-size:12px">' + esc(x.anulado) + '</p>';
       h += x.nc.length ? '<h3>Novedades</h3>' + x.nc.map(function(n){ return '<div class="nc"><b>' + esc(n.valor) + '</b> · ' + esc(n.seccion ? n.seccion + ' · ' : '') + esc(n.item) + '</div>'; }).join('') : '<h3>Novedades</h3><p class="mut" style="margin:0">Todo marcado C.</p>';
       if (x.obs.length) h += '<h3>Observaciones</h3>' + x.obs.map(function(o){ return '<div class="ob"><b>' + esc(o.titulo) + ':</b> ' + esc(o.texto) + '</div>'; }).join('');
       h += '<div class="acciones">';
-      if (!x.aprobado && R.edita && (R.todo || x.mio)) h += '<button type="button" class="pri" data-aprobar="' + esc(k) + '">Aprobar</button>';
+      if (!x.aprobado && !x.anulado && R.edita && (R.todo || x.mio)) h += '<button type="button" class="pri" data-aprobar="' + esc(k) + '">Aprobar</button>';
+      if (!x.aprobado && x.repetido && R.edita && (R.todo || x.mio)) h += '<button type="button" data-anular="' + esc(k) + '">Anular: repetido</button>';
+      if (x.anulado && R.edita && (R.todo || x.mio)) h += '<button type="button" data-desanular="' + esc(k) + '">Quitar anulación</button>';
       if (x.pdf) h += '<a href="' + esc(x.pdf) + '" target="_blank" rel="noopener"><button type="button">Abrir PDF</button></a>';
       h += '<button type="button" data-cerrar="1">Cerrar</button></div>';
-      if (!x.aprobado) h += '<p class="mut" style="font-size:12px;margin:8px 0 0">Al aprobar, el PDF con la firma de <b>' + esc(x.supervisor || 'el supervisor del formulario') + '</b> y el correo salen solos en máximo 10 minutos.</p>';
+      if (!x.aprobado && !x.anulado) h += '<p class="mut" style="font-size:12px;margin:8px 0 0">Al aprobar, el PDF con la firma de <b>' + esc(x.supervisor || 'el supervisor del formulario') + '</b> y el correo salen solos en máximo 10 minutos.</p>';
     }
     return h + '</div>';
   }
@@ -313,6 +321,7 @@
     var b = ev.target.closest('button');
     if (b && b.dataset.cerrar){ abierto = ''; pintar(); return; }
     if (b && b.dataset.aprobar){ aprobar(b.dataset.aprobar, b); return; }
+    if (b && (b.dataset.anular || b.dataset.desanular)){ anular(b.dataset.anular || b.dataset.desanular, b, !!b.dataset.desanular); return; }
     if (ev.target.closest('a')) return;
     var it = ev.target.closest('.item'); if (!it || it.classList.contains('abierto')) return;
     abierto = it.dataset.k; pintar(); it = document.querySelector('.item.abierto'); if (it) it.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -328,6 +337,18 @@
       pintar();
     }).withFailureHandler(function(){ btn.disabled = false; mostrar('err', 'No se pudo conectar. Puede aprobar en la hoja como siempre.'); })
       .aprobarPreop(ses.usuario, ses.pin, x.tipo, x.fila, x.marca);
+  }
+
+  function anular(k, btn, deshacer){
+    var x = R.lista.filter(function(y){ return clave(y) === k; })[0]; if (!x) return;
+    btn.disabled = true;
+    run().withSuccessHandler(function(r){
+      btn.disabled = false;
+      if (!r.ok){ mostrar('err', esc(r.error)); return; }
+      mostrar('ok', esc(x.equipo) + (deshacer ? ': se quitó la anulación.' : ' (' + esc(x.hora) + ') anulado como repetido.'));
+      abierto = ''; cargar();
+    }).withFailureHandler(function(){ btn.disabled = false; mostrar('err', 'No se pudo conectar.'); })
+      .anularPreop(ses.usuario, ses.pin, x.tipo, x.fila, x.marca, deshacer);
   }
 
   /* ---------- cámaras ---------- */
