@@ -547,7 +547,7 @@
   function verificarComp(d, info){
     var inp = d.querySelector('.num');
     inp.value = inp.value.trim().toUpperCase();
-    d.dataset.id = ''; d.dataset.tipoEst = ''; d._orf = []; d._ex.innerHTML = '';
+    d.dataset.id = ''; d.dataset.tipoEst = ''; d.dataset.volEst = ''; d._orf = []; d._ex.innerHTML = '';
     if (!inp.value){ info.textContent = ''; return; }
     var ef = errFormato(d.dataset.elemento, inp.value);
     if (ef){ info.className = 'info warn'; info.textContent = ef; return; }
@@ -556,6 +556,7 @@
     if (!m.length){
       info.className = 'info warn'; info.textContent = 'No está en el inventario: se creará como nuevo.';
       if (conTipo) pedirTipoComp(d, '', true);
+      pedirVoltComp(d, '');
       return;
     }
     if (m.length > 1){ info.className = 'info warn'; info.textContent = 'Número repetido en el inventario: el supervisor revisará cuál fue.'; return; }
@@ -563,15 +564,16 @@
     info.className = 'info';
     info.textContent = 'Hoy: ' + m[0][7] + ' · ' + (m[0][5] || 'sin ubicación') + (m[0][6] && m[0][6] !== 'Acopio' ? ' / ' + m[0][6] : '');
     if (conTipo) pedirTipoComp(d, m[0][4], false);
+    pedirVoltComp(d, m[0][10] || '');
     if (!d.dataset.retiro && d.dataset.elemento === 'CAJA' && m[0][7] === 'Instalado' && m[0][8]) pintarHuerfanosComp(d, m[0]);
   }
   function tiposComp(el){
-    return el === 'CABLE' ? ((L && L.tiposCable) || ['#2', '2/0', '4/0', '2/0 25kV', '300 MCM', 'Jumper'])
+    return el === 'CABLE' ? ((L && L.tiposCable) || ['#2', '2/0', '4/0', '300 MCM', 'Jumper'])
       : ((L && L.tiposCaja) || ['8 kV', '25 kV']);
   }
   /* Tipo: confirma el del inventario o deja elegirlo (igual que el módulo Inventario) */
   function pedirTipoComp(d, tipoInv, nuevo){
-    var box = d._ex.querySelector('.tb') || d._ex.insertBefore(document.createElement('div'), d._ex.firstChild);
+    var box = d._ex.querySelector('.tb:not(.vb)') || d._ex.insertBefore(document.createElement('div'), d._ex.firstChild);
     var el = d.dataset.elemento, nom = NOM[el].toLowerCase();
     var sel = '<select class="tipoSel"><option value="">Elija el tipo…</option>' + tiposComp(el).map(function(t){
       return '<option' + (t === tipoInv ? ' disabled' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
@@ -596,6 +598,31 @@
       d.dataset.tipoEst = 'opcional'; box.className = 'tb';
       box.innerHTML = (nuevo ? 'Elemento nuevo: elija el tipo de ' + nom : 'El inventario no tiene el tipo de esta ' + nom + ': elíjalo') +
         ' <span class="mut">(opcional)</span>' + sel.replace(' disabled', '');
+    }
+  }
+  /* Voltaje del cable (600 V / 8 kV / 25 kV): se confirma; si el inventario no lo tiene es obligatorio */
+  function pedirVoltComp(d, vInv){
+    if (d.dataset.elemento !== 'CABLE') return;
+    var box = d._ex.querySelector('.vb');
+    if (!box){ box = document.createElement('div'); var tb = d._ex.querySelector('.tb'); d._ex.insertBefore(box, tb ? tb.nextSibling : d._ex.firstChild); }
+    var sel = '<select class="voltSel"><option value="">Elija el voltaje…</option>' + ((L && L.voltajes) || ['600 V', '8 kV', '25 kV']).map(function(v){
+      return '<option' + (v === vInv ? ' disabled' : '') + '>' + esc(v) + '</option>'; }).join('') + '</select>';
+    if (vInv){
+      d.dataset.volEst = 'pendiente'; box.className = 'tb vb pend';
+      box.innerHTML = 'Voltaje del cable en el inventario: <b>' + esc(vInv) + '</b>. ¿Está de acuerdo?' +
+        '<div class="bt"><button type="button" class="si">Sí, es correcto</button><button type="button" class="no">No, corregir</button></div>';
+      box.querySelector('.si').onclick = function(){
+        d.dataset.volEst = 'ok'; box.className = 'tb vb';
+        box.innerHTML = '<span class="okt">✔ Voltaje ' + esc(vInv) + ' confirmado</span> <button type="button" class="lnk">cambiar</button>';
+        box.querySelector('.lnk').onclick = function(){ pedirVoltComp(d, vInv); };
+      };
+      box.querySelector('.no').onclick = function(){
+        d.dataset.volEst = 'corregir'; box.className = 'tb vb pend';
+        box.innerHTML = 'El inventario dice <b>' + esc(vInv) + '</b>. Elija el voltaje correcto:' + sel;
+      };
+    } else {
+      d.dataset.volEst = 'falta'; box.className = 'tb vb pend';
+      box.innerHTML = 'Voltaje del cable <span class="mut">(obligatorio)</span>' + sel.replace(/ disabled/g, '');
     }
   }
   /* Caja que se instala y hoy está con otro cable: preguntar qué pasa con ese cable */
@@ -659,6 +686,8 @@
         var n = NOM[d.dataset.elemento].toLowerCase() + ' ' + num, e = d.dataset.tipoEst;
         if (e === 'pendiente') err = 'Confirme el tipo del ' + n + ': toque "Sí, es correcto" o "No, corregir".';
         else if (e === 'corregir' && !(d._ex.querySelector('.tipoSel') || {}).value) err = 'Elija el tipo correcto del ' + n + '.';
+        else if (d.dataset.volEst === 'pendiente') err = 'Confirme el voltaje del ' + n + ': toque "Sí, es correcto" o "No, corregir".';
+        else if ((d.dataset.volEst === 'corregir' || d.dataset.volEst === 'falta') && !(d._ex.querySelector('.voltSel') || {}).value) err = 'Elija el voltaje del ' + n + ' (600 V, 8 kV o 25 kV).';
       });
     });
     return err;
@@ -668,7 +697,8 @@
       var est = d.querySelector('.est'), e = d.dataset.tipoEst;
       var tipo = (e === 'corregir' || e === 'opcional') ? ((d._ex && d._ex.querySelector('.tipoSel')) || {}).value || '' : '';
       return { elemento: d.dataset.elemento, numero: d.querySelector('.num').value.trim().toUpperCase(),
-        idMaestro: d.dataset.id || '', estado: est ? est.value : '', tipo: tipo };
+        idMaestro: d.dataset.id || '', estado: est ? est.value : '', tipo: tipo,
+        voltaje: (d.dataset.volEst === 'corregir' || d.dataset.volEst === 'falta') ? ((d._ex && d._ex.querySelector('.voltSel')) || {}).value || '' : '' };
     }).filter(function(x){ return x.numero; });
   }
 

@@ -49,6 +49,13 @@
   .tipoBox .bt button.si{border-color:var(--ok);color:var(--ok)}
   .tipoBox select{margin-top:6px}
   .tipoBox .okt{color:var(--ok);font-weight:600}
+  .voltBox{margin-top:6px;padding:10px;border-radius:8px;border:1px solid var(--ln);font-size:14px}
+  .voltBox.pend{border-color:var(--acc);background:var(--acc2)}
+  .voltBox .bt{display:flex;gap:6px;margin-top:8px}
+  .voltBox .bt button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--ln);background:var(--card);color:var(--tx);font:600 14px system-ui,sans-serif}
+  .voltBox .bt button.si{border-color:var(--ok);color:var(--ok)}
+  .voltBox select{margin-top:6px}
+  .voltBox .okt{color:var(--ok);font-weight:600}
   .lnk{background:none;border:none;color:var(--acc);text-decoration:underline;font:inherit;font-size:13px;padding:0 4px;cursor:pointer}
   .add{display:flex;gap:6px;flex-wrap:wrap}
   .add button{flex:1;min-height:44px;border:1px solid var(--ln);border-radius:8px;background:transparent;color:var(--tx);font:600 14px system-ui,sans-serif}
@@ -208,7 +215,7 @@
   'use strict';
   var KEY_COLA = 'red_cola', KEY_LISTAS = 'red_listas', KEY_USER = 'red_user', KEY_SES = 'red_sesion';
   var ses = null;   // { usuario, pin, mina, nombreMina }
-  var L = {tecnicos:[],circuitos:[],acopios:[],equipos:[],tiposCable:['#2','2/0','4/0','2/0 25kV','300 MCM','Jumper'],
+  var L = {tecnicos:[],circuitos:[],acopios:[],equipos:[],tiposCable:['#2','2/0','4/0','300 MCM','Jumper'],voltajes:['600 V','8 kV','25 kV'],
            tiposTorre:['Trípode','Mástil','Enana'],tiposCaja:['8 kV','25 kV'],
            detalles:['Cola','Tubo','Puente vía','Cargue doble','Bajante','Feeder','Arrastre'], detallesConTorres:['Puente vía','Cargue doble'],
            reglas:{letrasCaja:'AB',letrasCable:'',permitirNN:false,letraObligatoria:true},
@@ -259,7 +266,9 @@
     $('lblUbic').textContent = a === 'ACOPIO' ? 'Patio / sitio de acopio' : nuevo ? 'Nombre del circuito nuevo' : 'Circuito destino';
     if (nuevo) $('ubicacion').removeAttribute('list'); else $('ubicacion').setAttribute('list', a === 'ACOPIO' ? 'dlAcopios' : 'dlCircuitos');
     $('ubicacion').placeholder = a === 'ACOPIO' ? 'Ej: PATIO CABLE PIT 2' : nuevo ? 'Ej: 25SUB8-12 F3' : 'Ej: Circuito R';
-    if ((instala() ? 'par' : 'libre') !== modoElem) elementosBase();
+    var modoN = instala() ? 'par' : a === 'ACOPIO' ? 'acopio' : 'libre';
+    if (modoN !== modoElem) elementosBase();
+    $('addLibre').querySelector('[data-add=TORRE]').classList.toggle('hidden', a === 'ACOPIO');
     pintarCircuito();
   }
 
@@ -365,7 +374,7 @@
           '<select class="pos" style="margin-top:8px"><option value="">Posición…</option>' +
           '<option' + (posicion === '#1' ? ' selected' : '') + '>#1</option><option' + (posicion === '#2' ? ' selected' : '') + '>#2</option></select>'
         : numHtml) +
-      '<div class="info hidden"></div><div class="tipoBox hidden"></div><div class="orfBox"></div>';
+      '<div class="info hidden"></div><div class="tipoBox hidden"></div>' + (tipo === 'CABLE' ? '<div class="voltBox hidden"></div>' : '') + '<div class="orfBox"></div>';
     var quitar = d.querySelector('.elem-h button');
     if (cont && tipo !== 'TORRE') quitar.classList.add('hidden');   // en un tramo, cable y caja son obligatorios
     quitar.onclick = function(){ d.remove(); };
@@ -378,17 +387,18 @@
   var modoElem = '';
   function elementosBase(){
     var inst = instala();
-    modoElem = inst ? 'par' : 'libre';
+    modoElem = inst ? 'par' : st.accion === 'ACOPIO' ? 'acopio' : 'libre';
     $('elementos').innerHTML = '';
     $('addLibre').classList.toggle('hidden', inst);
     $('addTramo').classList.toggle('hidden', !inst);
     $('hintElem').textContent = inst
       ? (st.accion === 'NUEVO' ? 'Escriba los tramos en orden desde la subestación hacia la pala. ' : 'Cada tramo es un cable con su caja. Si instala varios, quedan en filas seguidas, en el orden en que los escribe. ') +
         'Marque el detalle de cada cable; las torres solo se piden en puente vía o cargue doble. El tipo sale del inventario: confírmelo o corríjalo.'
+      : st.accion === 'ACOPIO' ? 'Agregue todos los cables y cajas que retiró (botones + Cable / + Caja). Las torres no se retiran: quedan donde están.'
       : 'Llene solo los que movió. El tipo de cable y de caja se toma del inventario: solo confírmelo o corríjalo.';
     if (inst) { agregarTramo(); return; }
     agregarElemento('CABLE'); agregarElemento('CAJA');
-    agregarElemento('TORRE', '#1'); agregarElemento('TORRE', '#2');
+    if (st.accion !== 'ACOPIO'){ agregarElemento('TORRE', '#1'); agregarElemento('TORRE', '#2'); }
   }
   function agregarTramo(){
     var t = document.createElement('div');
@@ -446,8 +456,9 @@
     var inp = d.querySelector('.num');
     inp.value = inp.value.trim().toUpperCase();
     var num = inp.value;
-    d.dataset.id = ''; d.dataset.tipoEst = ''; d.dataset.tipoInv = '';
+    d.dataset.id = ''; d.dataset.tipoEst = ''; d.dataset.tipoInv = ''; d.dataset.volEst = '';
     tb.className = 'tipoBox hidden'; tb.innerHTML = '';
+    var vb = d.querySelector('.voltBox'); if (vb){ vb.className = 'voltBox hidden'; vb.innerHTML = ''; }
     pintarHuerfanos(d, null);
     if (!num){ info.className = 'info hidden'; return; }
     var ef = errFormato(d.dataset.elemento, num);
@@ -473,7 +484,7 @@
       var cables = (el === 'CAJA' && x[8] && x[7] === 'Instalado') ? L.items.filter(function(y){
         return y[1] === 'CABLE' && y[8] === x[8] && y[5] === x[5] && y[7] === 'Instalado';
       }).map(function(y){ return { id:y[0], numero:y[3] }; }) : [];
-      return { id:x[0], numero:x[3], tipo:x[4], ubicacion:x[5], equipo:x[6], estado:x[7], cables:cables };
+      return { id:x[0], numero:x[3], tipo:x[4], voltaje:x[9] || '', ubicacion:x[5], equipo:x[6], estado:x[7], cables:cables };
     });
   }
   function mostrarCoincidencias(d, c, local){
@@ -481,7 +492,7 @@
     var conTipo = d.dataset.elemento !== 'TORRE';
     if (c === null){   // sin señal y sin datos guardados
       info.className = 'info'; info.textContent = 'Sin señal: no se pudo verificar. Se usará el tipo que tenga el inventario.';
-      d.dataset.tipoEst = ''; return;
+      d.dataset.tipoEst = ''; pedirVolt(d, '', true); return;
     }
     var nota = local ? ' <span class="mut">(datos de la última conexión)</span>' : '';
     var linea = function(x){ return esc(x.estado) + ' · ' + esc(x.ubicacion || 'sin ubicación') +
@@ -489,6 +500,7 @@
     if (!c.length){
       info.className = 'info warn'; info.innerHTML = 'No está en el inventario. Se creará como nuevo.' + nota;
       if (conTipo) pedirTipo(d, '', 'nuevo'); else d.dataset.tipoEst = '';
+      pedirVolt(d, '');
       return;
     }
     if (c.length === 1){
@@ -496,7 +508,8 @@
       info.className = 'info'; info.innerHTML = 'Hoy: ' + linea(c[0]) + nota;
       pintarHuerfanos(d, c[0]);
       if (conTipo) pedirTipo(d, c[0].tipo, 'existe');
-      else { var sel = d.querySelector('.tipo'); if (!sel.value && c[0].tipo) sel.value = c[0].tipo; d.dataset.tipoEst = ''; }
+      pedirVolt(d, c[0].voltaje || '');
+      if (!conTipo) { var sel = d.querySelector('.tipo'); if (!sel.value && c[0].tipo) sel.value = c[0].tipo; d.dataset.tipoEst = ''; }
       return;
     }
     info.className = 'info warn';
@@ -510,6 +523,7 @@
         d.dataset.id = x.id;
         pintarHuerfanos(d, x);
         if (conTipo) pedirTipo(d, x.tipo, 'existe');
+        pedirVolt(d, x.voltaje || '');
       };
     });
   }
@@ -568,6 +582,31 @@
   }
 
   /* Pide confirmar el tipo que tiene el inventario, o elegirlo si no tiene / es nuevo */
+  /* Voltaje del cable (600 V / 8 kV / 25 kV): se confirma como el tipo; si el inventario no lo tiene es obligatorio */
+  function pedirVolt(d, vInv, sinDatos){
+    var vb = d.querySelector('.voltBox'); if (!vb) return;
+    var sel = '<select class="voltSel">' + opciones(L.voltajes || ['600 V', '8 kV', '25 kV'], 'Elija el voltaje…') + '</select>';
+    if (vInv){
+      d.dataset.volEst = 'pendiente'; vb.className = 'voltBox pend';
+      vb.innerHTML = 'Voltaje del cable en el inventario: <b>' + esc(vInv) + '</b>. ¿Está de acuerdo?' +
+        '<div class="bt"><button type="button" class="si">Sí, es correcto</button><button type="button" class="no">No, corregir</button></div>';
+      vb.querySelector('.si').onclick = function(){
+        d.dataset.volEst = 'ok'; vb.className = 'voltBox';
+        vb.innerHTML = '<span class="okt">✔ Voltaje ' + esc(vInv) + ' confirmado</span> <button type="button" class="lnk">cambiar</button>';
+        vb.querySelector('.lnk').onclick = function(){ pedirVolt(d, vInv); };
+      };
+      vb.querySelector('.no').onclick = function(){
+        d.dataset.volEst = 'corregir'; vb.className = 'voltBox pend';
+        vb.innerHTML = 'Inventario dice <b>' + esc(vInv) + '</b>. Elija el voltaje correcto:' + sel +
+          ' <button type="button" class="lnk">cancelar, sí es ' + esc(vInv) + '</button>';
+        Array.prototype.forEach.call(vb.querySelector('select').options, function(o){ if (o.value === vInv) o.disabled = true; });
+        vb.querySelector('.lnk').onclick = function(){ pedirVolt(d, vInv); vb.querySelector('.si').click(); };
+      };
+    } else {
+      d.dataset.volEst = 'falta'; vb.className = 'voltBox pend';
+      vb.innerHTML = (sinDatos ? 'Sin datos del inventario: ' : '') + 'Voltaje del cable <span class="mut">(obligatorio)</span>' + sel;
+    }
+  }
   function pedirTipo(d, tipoInv, modo){
     var tb = d.querySelector('.tipoBox');
     var el = d.dataset.elemento, nombre = NOM[el];
@@ -635,6 +674,10 @@
       else if (e === 'elegir') err = 'El ' + n + ' está repetido: marque cuál movió.';
       else if (e === 'pendiente') err = 'Confirme el tipo del ' + n + ': toque "Sí, es correcto" o "No, corregir".';
       else if (e === 'corregir' && !d.querySelector('.tipoSel').value) err = 'Elija el tipo correcto del ' + n + '.';
+      if (err) return;
+      var ve = d.dataset.volEst;
+      if (ve === 'pendiente') err = 'Confirme el voltaje del ' + n + ': toque "Sí, es correcto" o "No, corregir".';
+      else if ((ve === 'corregir' || ve === 'falta') && !d.querySelector('.voltSel').value) err = 'Elija el voltaje del ' + n + ' (600 V, 8 kV o 25 kV).';
     });
     return err;
   }
@@ -646,7 +689,8 @@
       var pos = d.querySelector('.pos'), tipo = '';
       if (d.dataset.elemento === 'TORRE') tipo = d.querySelector('.tipo').value;
       else if (d.dataset.tipoEst === 'corregir' || d.dataset.tipoEst === 'opcional') tipo = (d.querySelector('.tipoSel') || {}).value || '';
-      elems.push({ elemento: d.dataset.elemento, numero: num.toUpperCase(), tipo: tipo,
+      var volt = (d.dataset.volEst === 'corregir' || d.dataset.volEst === 'falta') ? ((d.querySelector('.voltSel') || {}).value || '') : '';
+      elems.push({ elemento: d.dataset.elemento, numero: num.toUpperCase(), tipo: tipo, voltaje: volt,
         posicion: pos ? pos.value : '', idMaestro: d.dataset.id || '',
         par: d.dataset.par !== undefined ? parseInt(d.dataset.par, 10) : 0 });
     });
