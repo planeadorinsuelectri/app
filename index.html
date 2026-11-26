@@ -68,6 +68,21 @@
   .eqAv .bt{display:flex;gap:6px;margin-top:6px}
   .eqAv button{flex:1;min-height:40px;border:1px solid var(--warn);border-radius:8px;background:transparent;color:var(--warn);font:600 13px system-ui,sans-serif}
   .eqAv button.sel{background:var(--warn);color:#fff}
+  .fila{padding:8px 10px;border-top:1px solid var(--ln);font-size:14px;cursor:pointer}
+  .fila:nth-child(even){background:var(--bg)}
+  .fila.sel{background:var(--acc2)!important;box-shadow:inset 4px 0 0 var(--acc)}
+  .fila.sin{cursor:default}
+  .fila i{font-style:normal;color:var(--mut);font-size:12px}
+  .nuevo{padding:6px 10px;font-size:13px;font-weight:700;color:var(--acc)}
+  .eqc{margin-top:10px;padding:10px;border-radius:10px;background:var(--acc2);font-size:14px}
+  .eqc.pend{background:var(--warnbg);color:var(--warn)}
+  .eqc .bt{display:flex;gap:6px;margin-top:8px}
+  .eqc button{flex:1;min-height:42px;border:1px solid var(--acc);border-radius:8px;background:transparent;color:var(--tx);font:600 13px system-ui,sans-serif}
+  .eqc input{margin-top:6px}
+  .detAg{margin:-2px 0 10px;padding:8px;border:1px dashed var(--ln);border-radius:10px}
+  .detAg .chips button{min-height:38px;padding:6px 10px}
+  .torAg .tr{display:grid;grid-template-columns:1fr 90px auto;gap:6px;margin-top:6px}
+  .torAg .tr button{border:none;background:none;color:var(--mut);font-size:20px}
   .info.warn{color:var(--warn)}
   .ex{font-size:13px;margin:-4px 0 10px}
   .ex .tb{padding:8px 10px;border:1px solid var(--ln);border-radius:8px;margin-bottom:6px}
@@ -276,9 +291,17 @@
     <h2>Cables, cajas y torres</h2>
     <p class="mut" style="margin-top:0">Lo que escriba aquí actualiza el inventario. No hay que reportarlo otra vez.</p>
     <label style="margin-top:0">Instalados en el circuito</label>
-    <p class="ayuda" style="margin-top:0">Quedan al final del circuito de la tarea. El primer cable va con la primera caja.</p>
+    <div class="seg" id="modoAg"><button type="button" data-v="FINAL" class="sel">Al final del circuito</button><button type="button" data-v="AVANCE">Cable de avance</button></div>
+    <p class="ayuda" id="ayAg">Quedan al final del circuito de la tarea. El primer cable va con la primera caja.</p>
+    <div id="bxAvance" class="hidden">
+      <div id="vistaAv"></div>
+      <div id="eqAvBox"></div>
+      <label for="cajaRefAv">¿Desde qué caja se agrega el cable de avance?</label>
+      <input id="cajaRefAv" autocomplete="off" autocapitalize="characters" placeholder="Toque la caja en el circuito o escríbala (ej: 229B)">
+      <p class="ayuda">Esa caja NO se mueve. El avance queda debajo de ella y lo que seguía (ej. el cola) queda al final.</p>
+    </div>
     <div id="agregados"></div>
-    <div class="add"><button type="button" data-ag="CABLE">+ Cable</button><button type="button" data-ag="CAJA">+ Caja</button><button type="button" data-ag="TORRE">+ Torre</button></div>
+    <div class="add"><button type="button" data-ag="CABLE">+ Cable</button><button type="button" data-ag="CAJA">+ Caja</button><button type="button" data-ag="TORRE" id="btnTorreAg">+ Torre</button></div>
     <label>Retirados del circuito</label>
     <label for="origenRet" style="margin-top:4px;font-weight:400">¿De qué circuito retira?</label>
     <input id="origenRet" list="dlCircuitos" autocomplete="off" placeholder="Circuito, o número de un cable o caja">
@@ -539,13 +562,145 @@
     var info = document.createElement('p'); info.className = 'info';
     var ex = document.createElement('div'); ex.className = 'ex';
     d._ex = ex; d._orf = []; d.dataset.retiro = retiro ? '1' : '';
-    d.querySelector('button').onclick = function(){ d.remove(); info.remove(); ex.remove(); pintarDestino(); };
+    d.querySelector('button').onclick = function(){ d.remove(); info.remove(); ex.remove(); if (d._det) d._det.remove(); pintarDestino(); if (!retiro) pintarAvance(); };
     d.querySelector('.num').addEventListener('change', function(){ verificarComp(d, info); });
     $(cont).appendChild(d); $(cont).appendChild(info); $(cont).appendChild(ex);
     pintarDestino();
     d.querySelector('.num').focus();
     d._info = info;
+    if (!retiro) pintarAvance();
     return d;
+  }
+
+  /* ---------- cable de avance (instalados debajo de una caja del circuito) ---------- */
+  var av = { modo: 'FINAL', ref: '' };
+  var eqc = { u: '', est: '', nuevo: '' };
+  function esAvance(){ return av.modo === 'AVANCE'; }
+  $('modoAg').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    av.modo = b.dataset.v;
+    Array.prototype.forEach.call($('modoAg').children, function(x){ x.classList.toggle('sel', x === b); });
+    pintarAvance();
+  });
+  function grupoTarea(){ return buscarGrupoT($('circuito').value); }
+  function pintarAvance(){
+    var on = esAvance();
+    $('bxAvance').classList.toggle('hidden', !on);
+    $('btnTorreAg').classList.toggle('hidden', on);
+    $('ayAg').textContent = on ? 'Escriba los tramos del avance en orden, desde la caja elegida hacia la pala: el primer cable va con la primera caja. Marque el detalle de cada cable.'
+      : 'Quedan al final del circuito de la tarea. El primer cable va con la primera caja.';
+    // detalle por cable (solo en avance)
+    var nc = 0;
+    $('agregados').querySelectorAll('.comp[data-elemento=CABLE]').forEach(function(d){
+      if (!d._det){
+        var w = document.createElement('div'); w.className = 'detAg';
+        w.innerHTML = '<div class="ayuda" style="margin:0 0 6px">Detalle del cable <b class="nc"></b> <span>(obligatorio, puede marcar varios)</span></div><div class="chips"></div>' +
+          '<div class="torAg hidden"><div class="ayuda">Puente vía o cargue doble: escriba al menos una torre.</div><div class="trs"></div><div class="add" style="margin-top:6px"><button type="button" class="addT">+ Torre</button></div></div>';
+        d._ex.after(w); d._det = w;
+        w.querySelector('.chips').addEventListener('click', function(ev){ var b = ev.target.closest('button'); if (!b) return; b.classList.toggle('sel'); torresAg(d); });
+        w.querySelector('.addT').onclick = function(){ agregarTorreAg(d); };
+      }
+      var ch = d._det.querySelector('.chips');
+      if (!ch.children.length){ var sel = []; ch.innerHTML = ((L && L.detalles) || ['Cola','Tubo','Puente vía','Cargue doble','Bajante','Feeder','Arrastre']).map(function(v){
+        return '<button type="button" data-v="' + esc(v) + '">' + esc(v) + '</button>'; }).join(''); }
+      d._det.querySelector('.nc').textContent = (++nc) + (d.querySelector('.num').value ? ' (' + d.querySelector('.num').value + ')' : '');
+      d._det.classList.toggle('hidden', !on);
+      torresAg(d);
+    });
+    if (!on) return;
+    var g = grupoTarea(), box = $('vistaAv');
+    pintarEqAv(g);
+    if (!g){ box.innerHTML = '<p class="info" style="color:var(--err)">' + ($('circuito').value.trim() ? 'El circuito de la tarea no está en el inventario. Escríbalo como sale en la lista.' : 'Escriba arriba el circuito de la tarea.') + '</p>'; return; }
+    var ref = norm($('cajaRefAv').value), hay = false;
+    var filas = g.tramos.map(function(t, n){
+      var cajas = t.cajas.map(function(c){ return c.numero; });
+      var sel = ref && cajas.some(function(c){ return norm(c) === ref; }); if (sel) hay = true;
+      var tor = t.t1.concat(t.t2), p = [];
+      if (t.cables.length) p.push('Cable <b>' + t.cables.map(function(c){ return esc(c.numero); }).join(' / ') + '</b>' + (t.cables[0].tipo ? ' <i>' + esc(t.cables[0].tipo) + '</i>' : ''));
+      if (cajas.length) p.push('Caja <b>' + cajas.map(esc).join(' / ') + '</b>');
+      if (tor.length) p.push('Torres ' + tor.map(function(x){ return esc(x.numero); }).join(' / '));
+      if (t.detalles) p.push('<i>' + esc(t.detalles) + '</i>');
+      return '<div class="fila' + (sel ? ' sel' : '') + (cajas.length ? '' : ' sin') + '" data-caja="' + esc(cajas[0] || '') + '"><span class="ayuda">' + (n + 1) + '.</span> ' + p.join(' · ') + '</div>' +
+        (sel ? '<div class="nuevo">▼ Aquí va el cable de avance</div>' : '');
+    }).join('');
+    box.innerHTML = '<div class="vc"><div class="vc-h"><b>Así está hoy ' + esc(g.ubicacion) + '</b>' + (g.equipos.length ? ' · ' + esc(g.equipos.join(' / ')) : '') +
+      '<br>Toque la caja desde donde sale el avance.</div><div class="vc-b">' + filas + '</div></div>' +
+      (ref && !hay ? '<p class="info" style="color:var(--err)">La caja ' + esc($('cajaRefAv').value) + ' no está en este circuito.</p>' : '');
+    box.querySelectorAll('.fila').forEach(function(f){ f.onclick = function(){ if (!f.dataset.caja) return; $('cajaRefAv').value = f.dataset.caja; pintarAvance(); }; });
+  }
+  $('agregados').addEventListener('change', function(ev){ if (esAvance() && ev.target.classList.contains('num')) pintarAvance(); });
+  $('cajaRefAv').addEventListener('change', function(){ this.value = this.value.trim().toUpperCase(); pintarAvance(); });
+  $('circuito').addEventListener('change', function(){ if (esAvance()) pintarAvance(); });
+  function torresAg(d){
+    var con = ((L && L.detallesConTorres) || ['Puente vía', 'Cargue doble']);
+    var det = Array.prototype.filter.call(d._det.querySelectorAll('.chips .sel'), function(){ return true; }).map(function(b){ return b.dataset.v; });
+    var pide = det.some(function(x){ return con.indexOf(x) >= 0; });
+    var ta = d._det.querySelector('.torAg'); ta.classList.toggle('hidden', !pide);
+    if (pide && !ta.querySelector('.tr')) agregarTorreAg(d);
+  }
+  function agregarTorreAg(d){
+    var r = document.createElement('div'); r.className = 'tr';
+    r.innerHTML = '<input class="tnum" autocomplete="off" autocapitalize="characters" placeholder="Torre (ej: TC12)"><select class="tpos"><option value="">Pos…</option><option>#1</option><option>#2</option></select><button type="button" aria-label="Quitar">×</button>';
+    r.querySelector('button').onclick = function(){ r.remove(); };
+    d._det.querySelector('.trs').appendChild(r);
+  }
+  function pintarEqAv(g){
+    var box = $('eqAvBox');
+    if (!g){ box.innerHTML = ''; box.dataset.k = ''; eqc = { u: '', est: '', nuevo: '' }; return; }
+    if (eqc.u !== g.ubicacion) eqc = { u: g.ubicacion, est: '', nuevo: '' };
+    var hoy = g.equipos.join(' / '), k = eqc.u + '|' + eqc.est + '|' + hoy;
+    if (box.dataset.k === k && box.innerHTML) return;   // no redibujar: no se pierde el toque ni lo escrito
+    box.dataset.k = k;
+    var h;
+    if (eqc.est === 'ok') h = '<div class="eqc">✔ Alimenta a <b>' + esc(hoy) + '</b> <button type="button" class="lnk cam" style="flex:none;min-height:0;border:none">cambiar</button></div>';
+    else if (eqc.est === 'ninguno') h = '<div class="eqc">✔ El circuito no alimenta ningún equipo <button type="button" class="lnk cam" style="flex:none;min-height:0;border:none">cambiar</button></div>';
+    else if (eqc.est === 'otro' || !hoy) h = '<div class="eqc pend">' + (hoy ? 'El inventario dice <b>' + esc(hoy) + '</b>. ¿Cuál equipo alimenta el circuito?' : 'Este circuito no tiene equipo registrado. ¿A qué equipo alimenta?') +
+      '<input class="eqNuevo" list="dlEquipos" autocomplete="off" placeholder="Ej: Pala 48" value="' + esc(eqc.nuevo) + '"><div class="bt">' +
+      (hoy ? '<button type="button" class="si">Sí era ' + esc(hoy) + '</button>' : '') + '<button type="button" class="nin">No alimenta ningún equipo</button></div></div>';
+    else h = '<div class="eqc pend">Este circuito alimenta hoy a <b>' + esc(hoy) + '</b>. ¿Es correcto?<div class="bt"><button type="button" class="si">Sí, es correcto</button><button type="button" class="no">No, es otro</button></div></div>';
+    box.innerHTML = h;
+    var q = function(c){ return box.querySelector(c); };
+    if (q('.si')) q('.si').onclick = function(){ eqc.est = 'ok'; eqc.nuevo = ''; pintarEqAv(g); };
+    if (q('.no')) q('.no').onclick = function(){ eqc.est = 'otro'; pintarEqAv(g); };
+    if (q('.nin')) q('.nin').onclick = function(){ eqc.est = 'ninguno'; eqc.nuevo = ''; pintarEqAv(g); };
+    if (q('.cam')) q('.cam').onclick = function(){ eqc.est = ''; pintarEqAv(g); };
+    if (q('.eqNuevo')) q('.eqNuevo').onchange = function(){ eqc.est = 'otro'; eqc.nuevo = this.value.trim(); };
+  }
+  function leerAvance(){
+    if (!esAvance()) return null;
+    var g = grupoTarea(), hoy = g ? g.equipos.join(' / ') : '';
+    var eq = eqc.est === 'ok' ? (g && g.equipos[0] || '') : eqc.est === 'otro' ? eqc.nuevo : '';
+    var det = {}, torres = [], nc = 0;
+    $('agregados').querySelectorAll('.comp[data-elemento=CABLE]').forEach(function(d){
+      if (!d.querySelector('.num').value.trim()) return;
+      var i = nc++;
+      det[i] = d._det ? Array.prototype.map.call(d._det.querySelectorAll('.chips .sel'), function(b){ return b.dataset.v; }) : [];
+      if (d._det && !d._det.querySelector('.torAg').classList.contains('hidden')) d._det.querySelectorAll('.tr').forEach(function(r){
+        var n = r.querySelector('.tnum').value.trim().toUpperCase(); if (n) torres.push({ elemento: 'TORRE', numero: n, posicion: r.querySelector('.tpos').value, par: i });
+      });
+    });
+    return { cajaRef: $('cajaRefAv').value.trim().toUpperCase(), equipo: eq, detallesTramo: det, torres: torres,
+      equipoCircuito: g && eqc.est && eqc.est !== 'ok' && (eqc.est === 'ninguno' ? hoy : eqc.nuevo !== hoy) ? { antes: hoy, nuevo: eqc.est === 'ninguno' ? '' : eqc.nuevo } : null };
+  }
+  function errAvance(p){
+    if (!p.avance) return '';
+    var g = grupoTarea(), a = p.avance;
+    if (!g) return 'Cable de avance: escriba el circuito de la tarea tal como sale en la lista.';
+    if (!eqc.est || (eqc.est === 'otro' && !eqc.nuevo)) return 'Confirme a qué equipo alimenta el circuito ' + g.ubicacion + '.';
+    if (!a.cajaRef) return 'Diga desde qué caja se agrega el cable de avance (toque la caja en el circuito).';
+    if (!g.tramos.some(function(t){ return t.cajas.some(function(c){ return norm(c.numero) === norm(a.cajaRef); }); })) return 'La caja ' + a.cajaRef + ' no está en ' + g.ubicacion + '.';
+    var cab = p.agregados.filter(function(e){ return e.elemento === 'CABLE'; }), caj = p.agregados.filter(function(e){ return e.elemento === 'CAJA'; });
+    if (!cab.length) return 'Cable de avance: escriba al menos un cable.';
+    if (p.agregados.some(function(e){ return e.elemento === 'TORRE'; })) return 'En cable de avance las torres se escriben debajo del cable (puente vía o cargue doble).';
+    if (!(caj.length === cab.length || caj.length === cab.length - 1)) return 'Cable de avance: cada tramo lleva un cable y una caja (solo el último cable puede ir sin caja). Hay ' + cab.length + ' cables y ' + caj.length + ' cajas.';
+    var con = ((L && L.detallesConTorres) || ['Puente vía', 'Cargue doble']);
+    for (var i = 0; i < cab.length; i++){
+      var d = a.detallesTramo[i] || [];
+      if (!d.length) return 'Marque el detalle del cable ' + cab[i].numero + ' (cola, tubo, puente vía…).';
+      if (d.some(function(x){ return con.indexOf(x) >= 0; }) && !a.torres.some(function(t){ return t.par === i; })) return 'El cable ' + cab[i].numero + ' es puente vía o cargue doble: escriba al menos una torre.';
+    }
+    for (var j = 0; j < a.torres.length; j++) if (!a.torres[j].posicion) return 'Indique la posición (#1 o #2) de la torre ' + a.torres[j].numero + '.';
+    return '';
   }
 
   /* ---------- retirar: escoger del circuito ---------- */
@@ -909,6 +1064,7 @@
       cambioPlan: st.clase === 'DOWN' ? st.cambioPlan : '', descCambio: $('descCambio').value.trim(), minCambio: $('minCambio').value.trim(),
       cableCola: st.cableCola, inspeccionCola: $('inspeccionCola').value.trim(),
       agregados: leerComp('agregados'), retirados: leerComp('retirados'), destinoRetiro: $('destinoRetiro').value.trim(),
+      avance: leerAvance(),
       retiroTodo: retiroTodoT() ? ret.g.ubicacion : '',
       cambiosEquipo: cambiosEquipoT().map(function(c){ return { equipo: c.equipo, origen: c.origen, destino: c.destino }; }),
       huerfanos: leerHuerfanosComp(leerComp('agregados'), leerComp('retirados'))
@@ -971,6 +1127,7 @@
     }
     if (p.retirados.length && !p.destinoRetiro) return 'Escriba a qué patio llevó lo retirado.';
     var ec = errComp(); if (ec) return ec;
+    var ea = errAvance(p); if (ea) return ea;
     for (var h = 0; h < (p.huerfanos || []).length; h++){
       var x = p.huerfanos[h];
       if (!x.accion) return 'Diga qué pasa con el cable ' + x.numero + ' que queda sin caja.';
@@ -1048,6 +1205,8 @@
     st.fotos = []; pintarFotos();
     chipsMarcar('justificaciones', []); pintarJustMin();
     $('agregados').innerHTML = ''; $('retirados').innerHTML = '';
+    $('cajaRefAv').value = ''; eqc = { u: '', est: '', nuevo: '' }; $('eqAvBox').dataset.k = ''; av.modo = 'FINAL';
+    Array.prototype.forEach.call($('modoAg').children, function(x){ x.classList.toggle('sel', x.dataset.v === 'FINAL'); }); pintarAvance();
     $('origenRet').value = ''; ret.g = null; ret.eq = {}; $('vistaOrigenRet').innerHTML = ''; $('infoOrigenRet').style.color = '';
     $('bxCambio').classList.add('hidden'); $('bxCola').classList.add('hidden');
     pintarDestino(); pintarClase();
