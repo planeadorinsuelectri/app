@@ -686,6 +686,7 @@
     if (!p.avance) return '';
     var g = grupoTarea(), a = p.avance;
     if (!g) return 'Cable de avance: escriba el circuito de la tarea tal como sale en la lista.';
+    if (!(g.cables > 0)) return 'El circuito ' + g.ubicacion + ' no tiene cables en el inventario. El cable de avance solo se agrega a circuitos que ya tienen cable.';
     if (!eqc.est || (eqc.est === 'otro' && !eqc.nuevo)) return 'Confirme a qué equipo alimenta el circuito ' + g.ubicacion + '.';
     if (!a.cajaRef) return 'Diga desde qué caja se agrega el cable de avance (toque la caja en el circuito).';
     if (!g.tramos.some(function(t){ return t.cajas.some(function(c){ return norm(c.numero) === norm(a.cajaRef); }); })) return 'La caja ' + a.cajaRef + ' no está en ' + g.ubicacion + '.';

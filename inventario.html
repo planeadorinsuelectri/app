@@ -240,6 +240,7 @@
 <datalist id="dlUsuarios"></datalist>
 <datalist id="dlCircuitos"></datalist>
 <datalist id="dlSinEquipo"></datalist>
+<datalist id="dlConCable"></datalist>
 <datalist id="dlAcopios"></datalist>
 <datalist id="dlEquipos"></datalist>
 <datalist id="dlSubs"></datalist>
@@ -309,7 +310,7 @@
     $('bxEstado').classList.toggle('hidden', !(a === 'ACOPIO' || a === 'ESTADO'));
     $('lblUbic').textContent = a === 'ACOPIO' ? 'Patio / sitio de acopio' : cont ? '¿Qué circuito va a continuar?' : nuevo ? 'Nombre del circuito nuevo' : av ? '¿A qué circuito se le agrega el cable de avance?' : 'Circuito destino';
     if (cont) $('ubicacion').setAttribute('list', 'dlSinEquipo');
-    else if (nuevo) $('ubicacion').removeAttribute('list'); else $('ubicacion').setAttribute('list', a === 'ACOPIO' ? 'dlAcopios' : 'dlCircuitos');
+    else if (nuevo) $('ubicacion').removeAttribute('list'); else $('ubicacion').setAttribute('list', a === 'ACOPIO' ? 'dlAcopios' : av ? 'dlConCable' : 'dlCircuitos');
     $('ubicacion').placeholder = a === 'ACOPIO' ? 'Ej: PATIO CABLE PIT 2' : cont ? 'Nombre del circuito, o número de un cable o caja' : nuevo ? 'Ej: 25SUB8-12 F3' : 'Ej: Circuito R';
     var modoN = instala() ? 'par' : a === 'ACOPIO' ? 'acopio' : 'libre';
     if (modoN !== modoElem) elementosBase();
@@ -971,6 +972,7 @@
     if (p.accion === 'AVANCE'){
       var ga = buscarGrupo(p.ubicacion);
       if (!ga) return 'Elija de la lista el circuito al que se le agrega el avance (si es un circuito nuevo use "Circuito nuevo").';
+      if (!(ga.cables > 0)) return 'El circuito ' + ga.ubicacion + ' no tiene cables en el inventario. El cable de avance solo se agrega a circuitos que ya tienen cable.';
       if (!eqc.est || (eqc.est === 'otro' && !eqc.nuevo)) return 'Confirme a qué equipo alimenta el circuito ' + ga.ubicacion + '.';
       if (!p.cajaRef) return 'Diga desde qué caja se agrega el cable de avance (toque la caja en el circuito).';
       var hayCaja = ga.tramos.some(function(t){ return t.cajas.some(function(c){ return norm(c.numero) === norm(p.cajaRef); }); });
@@ -1124,6 +1126,7 @@
     $('mina').textContent = L.mina || '';
     var fill = function(id, arr){ $(id).innerHTML = (arr || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); };
     fill('dlTecnicos', L.tecnicos); fill('dlCircuitos', L.circuitos);
+    fill('dlConCable', (L.grupos || []).filter(function(g){ return !g.acopio && g.cables > 0; }).map(function(g){ return g.ubicacion; }));
     fill('dlSinEquipo', (L.grupos || []).filter(function(g){ return !g.equipos.length && (g.cables || g.cajas); }).map(function(g){ return g.ubicacion; }));
     fill('dlAcopios', L.acopios); fill('dlEquipos', L.equipos); fill('dlSubs', L.subestaciones);
     L.detalles = (L.detalles || []).filter(function(d){ return d !== 'Caja 25'; });
