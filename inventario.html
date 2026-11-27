@@ -560,10 +560,12 @@
       h = '<div class="eqc"><span class="okt">✔ Alimenta a <b>' + esc(hoy) + '</b></span> <button type="button" class="lnk cam">cambiar</button></div>';
     } else if (eqc.est === 'ninguno'){
       h = '<div class="eqc"><span class="okt">✔ El circuito no alimenta ningún equipo</span> <button type="button" class="lnk cam">cambiar</button></div>';
-    } else if (eqc.est === 'otro' || !hoy){
-      h = '<div class="eqc pend">' + (hoy ? 'El inventario dice <b>' + esc(hoy) + '</b>. ¿Cuál equipo alimenta el circuito?' : 'Este circuito no tiene equipo registrado. ¿A qué equipo alimenta?') +
+    } else if (!hoy){
+      h = '<div class="eqc pend">Este circuito no tiene pala asignada. El cable de avance solo se agrega a circuitos que alimentan un equipo. Si el circuito se está tirando, use <b>Circuito nuevo → Continuar circuito</b>.</div>';
+    } else if (eqc.est === 'otro'){
+      h = '<div class="eqc pend">El inventario dice <b>' + esc(hoy) + '</b>. ¿Cuál equipo alimenta el circuito?' +
         '<input class="eqNuevo" list="dlEquipos" autocomplete="off" placeholder="Ej: Pala 48" value="' + esc(eqc.nuevo) + '">' +
-        '<div class="bt">' + (hoy ? '<button type="button" class="si">Sí era ' + esc(hoy) + '</button>' : '') + '<button type="button" class="nin">No alimenta ningún equipo</button></div></div>';
+        '<div class="bt"><button type="button" class="si">Sí era ' + esc(hoy) + '</button></div></div>';
     } else {
       h = '<div class="eqc pend">Este circuito alimenta hoy a <b>' + esc(hoy) + '</b>. ¿Es correcto?' +
         '<div class="bt"><button type="button" class="si">Sí, es correcto</button><button type="button" class="no">No, es otro</button></div></div>';
@@ -972,7 +974,7 @@
     if (p.accion === 'AVANCE'){
       var ga = buscarGrupo(p.ubicacion);
       if (!ga) return 'Elija de la lista el circuito al que se le agrega el avance (si es un circuito nuevo use "Circuito nuevo").';
-      if (!(ga.cables > 0)) return 'El circuito ' + ga.ubicacion + ' no tiene cables en el inventario. El cable de avance solo se agrega a circuitos que ya tienen cable.';
+      if (!ga.equipos.length) return 'El circuito ' + ga.ubicacion + ' no tiene pala asignada. El cable de avance solo se agrega a circuitos que alimentan un equipo; si el circuito se está tirando, use Circuito nuevo → Continuar circuito.';
       if (!eqc.est || (eqc.est === 'otro' && !eqc.nuevo)) return 'Confirme a qué equipo alimenta el circuito ' + ga.ubicacion + '.';
       if (!p.cajaRef) return 'Diga desde qué caja se agrega el cable de avance (toque la caja en el circuito).';
       var hayCaja = ga.tramos.some(function(t){ return t.cajas.some(function(c){ return norm(c.numero) === norm(p.cajaRef); }); });
@@ -1126,7 +1128,7 @@
     $('mina').textContent = L.mina || '';
     var fill = function(id, arr){ $(id).innerHTML = (arr || []).map(function(v){ return '<option value="' + esc(v) + '">'; }).join(''); };
     fill('dlTecnicos', L.tecnicos); fill('dlCircuitos', L.circuitos);
-    fill('dlConCable', (L.grupos || []).filter(function(g){ return !g.acopio && g.cables > 0; }).map(function(g){ return g.ubicacion; }));
+    fill('dlConCable', (L.grupos || []).filter(function(g){ return !g.acopio && g.equipos.length > 0; }).map(function(g){ return g.ubicacion; }));
     fill('dlSinEquipo', (L.grupos || []).filter(function(g){ return !g.equipos.length && (g.cables || g.cajas); }).map(function(g){ return g.ubicacion; }));
     fill('dlAcopios', L.acopios); fill('dlEquipos', L.equipos); fill('dlSubs', L.subestaciones);
     L.detalles = (L.detalles || []).filter(function(d){ return d !== 'Caja 25'; });
